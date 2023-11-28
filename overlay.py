@@ -15,28 +15,31 @@ class Particle():
         self.theta = theta
         self.weight = weight
         self.color = np.random.randint(0, 10)
-        self.start = (x, y)
-        self.path = []
+        self.path = [(x, y)]
 
 class MapInterpolation():
 
     def __init__(self):
+        
+        #Bag Params
+        self.bag_name = 'maze'
 
-        self.bag_name = 'path2'
+        #Map Params
+        self.map_width = 480
+        self.map_height = 480
+        self.resolution = 0.05
+        self.origin_x = -12.0 
+        self.origin_y = -12.0
 
-        self.map_width = 384
-        self.map_height = 384 
-        self.resolution = 0.05000000074505806
-        self.origin_x = -10.0 
-        self.origin_y = -10.0  
+        #Trial Params
         self.trials = 1
         self.variations = 1
 
-        #turtlebot3 stage only
-        self.bounds_x = [142, 252]
-        self.bounds_y = [150, 250]
-
-        self.only_start_viz = True
+        ####Display Options 
+        self.visualize = False        #output images
+        self.only_start_viz = False   #True = Only starting points, False = Full path
+        self.genAlt = False           #compute alternative paths
+        self.showOrgPath = False      #display original path
 
         self.paths = []
         self.path_coords = []
@@ -44,6 +47,7 @@ class MapInterpolation():
         self.map_coords = []
         self.diff_vectors = []
         self.precise_diff_vectors = []
+        self.mcl_vectors = []
 
         self.map_array = np.zeros((self.map_height, self.map_width), dtype=np.uint8)
         self.bag = rosbag.Bag(self.bag_name + '.bag')
@@ -54,25 +58,30 @@ class MapInterpolation():
 
         self.readBag()
         self.generateVectors()
-        self.generatePreciseVectors()
+        # self.generatePreciseVectors()
 
-        self.original_start = self.map_data[0]
-        start_points = self.random_start(self.trials)
+        if self.genAlt:
+            self.original_start = self.map_data[0]
+            start_points = self.random_start(self.trials)
 
-        for start_point in start_points:
-            self.randomPath(start_point, self.variations)
+            for start_point in start_points:
+                self.randomPath(start_point, self.variations)
+        
+        if self.showOrgPath:
+            for (x, y) in self.map_coords:
+                self.map_array[x, y] = 1
 
-        self.generateVisuals()
+        if self.visualize:
+            self.generateVisuals()
 
         # print("\nViable start positions: " + str(len(self.viable)) + ", " + str((len(self.viable)/(self.trials)) * 100) + "%")
 
     def random_start(self, trials):
         res = []
         for _ in range(trials):
-            # r_x = int(np.random.uniform(0, self.map_width))
-            # r_y = int(np.random.uniform(0, self.map_height)) 
-            r_x = int(np.random.uniform(self.bounds_x[0], self.bounds_x[1])) ##FOR TURTLEBOT3 STAGE ONLY
-            r_y = int(np.random.uniform(self.bounds_y[0], self.bounds_y[1]))
+            r_x = int(np.random.uniform(0, self.map_width))
+            r_y = int(np.random.uniform(0, self.map_height)) 
+
             res.append((r_x, r_y))
 
         return res
@@ -81,8 +90,7 @@ class MapInterpolation():
 
         array = np.zeros((self.map_height, self.map_width), dtype=np.uint8)
         for x, y in path:
-            # if 0 <= x < self.map_width and 0 <= y < self.map_height:
-            if self.bounds_x[0] <= x < self.bounds_x[1] and self.bounds_y[0] <= y < self.bounds_y[1]: ##FOR TURTLEBOT3 STAGE ONLY
+            if 0 <= x < self.map_width and 0 <= y < self.map_height:
                 array[y, x] = 1
             else:
                 return False
@@ -96,10 +104,12 @@ class MapInterpolation():
         return False
 
     def readBag(self):
-        for topic, msg, t in self.bag.read_messages(topics='/path'):
-            x = msg.__getattribute__('x')
-            y = msg.__getattribute__('y')
-            self.path_coords.append((x, y))
+        for topic, msg, t in self.bag.read_messages(topics='/odom'):
+            pos = msg.__getattribute__('pose').__getattribute__('pose').__getattribute__('position')
+            x = pos.__getattribute__('x')
+            y = pos.__getattribute__('y')
+            self.path_coords.append((y, -x)) #for map
+            self.mcl_vectors.append((-x, y)) #for mcl
 
     def generateVectors(self):
 
@@ -108,6 +118,8 @@ class MapInterpolation():
             map_x = int((x - self.origin_x) / self.resolution)  
             map_y = int((y - self.origin_y) / self.resolution)
             self.map_coords.append((map_x, map_y))
+
+        self.map_coords = list(dict.fromkeys(self.map_coords))
 
         #vectors
         for x in range(len(self.map_coords) - 1):
@@ -155,7 +167,7 @@ class MapInterpolation():
 
     def readMapDataCallback(self, data):
         # self.map_info = data.info
-        self.map_data = np.array(data.data, dtype=np.int8).reshape(384, 384)
+        self.map_data = np.array(data.data, dtype=np.int8).reshape(self.map_width, self.map_height)
         
         # df = pd.DataFrame(self.map_data)
         # df.to_csv('map_data.csv', index=False)
@@ -167,6 +179,7 @@ class MapInterpolation():
         # rospy.spin()
         
         self.map_data = pd.read_csv('map_data.csv').to_numpy()
+        self.map_data = self.map_data[:, ::-1]
     
     def generateVisuals(self):
 
@@ -215,60 +228,56 @@ class MonteCarlo():
         self.width = width
         self.height = height
 
-        self.bounds_x = [142, 252]
-        self.bounds_y = [150, 250]
 
     def set_particles(self):
         for _ in range(self.num_particles):
-            x = int(np.random.uniform(self.bounds_x[0], self.bounds_x[1])) #change to proper bounds when not using turtlebot3
-            y = int(np.random.uniform(self.bounds_y[0], self.bounds_y[1])) #and remove the parametres, they aren't neccesary
-            theta = np.random.uniform(0, 2 * np.pi)
+            x = int(np.random.uniform(0, self.width))
+            y = int(np.random.uniform(0, self.height))
+            theta = np.random.uniform(0, 360)
             weight = 1.0 / self.num_particles
             self.particles.append(Particle(x, y, theta, weight))
+
 
     def run_mcl(self):
         for mag, ang in self.diff_vectors:
             self.motion_update(mag, ang)
             self.collision_update()
-        self.print_map()
+            self.print_map()
             
     def motion_update(self, mag, ang):
         for i in range(len(self.particles)):
             p = self.particles[i]
-            # print([(x.x, x.y) for x in p.path])
-            # print(p.x, p.y)
-            p.path.append(p)
-            r_mag = np.random.uniform(0.75, 1.25)
-            r_ang = np.random.uniform(-np.pi / 6, np.pi / 6)
+            x = p.path[-1][0]
+            y = p.path[-1][1]
+
+            r_mag = np.random.uniform(0.5, 2)
+            r_ang = np.random.uniform(-np.radians(10), np.radians(10))
 
             adjusted_mag = mag * r_mag
             adjusted_ang = ang + r_ang + p.theta
-            # print(adjusted_mag, adjusted_ang)
-            # print(adjusted_mag * np.cos(adjusted_ang), int(adjusted_mag * np.cos(adjusted_ang)))
-            # print((p.x,p.y), int(adjusted_mag * np.cos(adjusted_ang)))
-            # oldx = p.x
-            # oldy = p.y
-            # print((self.particles[i].x, self.particles[i].y))
-            p.x = p.x + int(adjusted_mag * np.cos(adjusted_ang))
-            p.y = p.y + int(adjusted_mag * np.sin(adjusted_ang))
-            # print((self.particles[i].x, self.particles[i].y))
 
-            # print((oldx - self.particles[i].x, oldy - self.particles[i].y), (p.x - oldx, p.y-oldy))
-            self.particles[i] = p
+            # adjusted_mag = mag
+            # adjusted_ang = ang 
+
+            x = x + int(adjusted_mag * np.cos(adjusted_ang))
+            y = y + int(adjusted_mag * np.sin(adjusted_ang))
+
+            self.particles[i].path.append((x, y))
         
     def collision_update(self):
         t_particles = []
         for particle in self.particles:
-            if self.bounds_x[0] <= particle.x <= self.bounds_x[1] \
-            and self.bounds_y[0] <= particle.y <= self.bounds_y[1] \
-            and self.obstacles[particle.y, particle.x] == 0:
+            x,y = particle.path[-1]
+
+            if 0 <= x < self.width and 0 <= y < self.height \
+            and self.obstacles[y, x] == 0:
                 t_particles.append(particle)
 
         self.particles = t_particles
         self.num_particles = len(self.particles)
     
     def print_map(self):
-        mim = Image.new('RGB', (self.width, self.height), color='white')
+        mix = Image.new('RGB', (self.width, self.height), color='white')
 
         colors = {
             0: (255, 255, 255), # White
@@ -292,28 +301,26 @@ class MonteCarlo():
             for y in range(self.height):
                 if self.obstacles[y, x]:
                     clr = colors_binary[self.obstacles[y, x]]
-                    mim.putpixel((x, y), clr)
+                    mix.putpixel((x, y), clr)
 
         #path
         for particle in self.particles:
             clr = colors[particle.color]
-            # print('--------------------------------------------------------')
-            print(len(particle.path))
-            for p in particle.path:
-                x = p.x
-                y = p.y
-                # print(x, y)
-                mim.putpixel((x, y), clr)
+
+            mix.putpixel((particle.x, particle.y), clr) #for starting points
+
+            # for p in particle.path: #for path
+            #     x = p[0]
+            #     y = p[1]
+
+            #     if 0 <= x < self.width and 0 <= y < self.height:
+            #         mix.putpixel((x, y), clr)
         
-        mim.save('mcl.jpeg')
+        mix.save('mcl.jpeg')
 
 if __name__ == '__main__':
     map = MapInterpolation()
-    map.precise_diff_vectors = np.add.reduceat(map.precise_diff_vectors, np.arange(0, len(map.precise_diff_vectors), 5))
-    # for i in range(len(map.precise_diff_vectors)):
-    #     print(map.precise_diff_vectors[i])
-    # print(len(map.precise_diff_vectors))
-    mc = MonteCarlo(10, map.precise_diff_vectors, map.binary_array, map.map_width, map.map_height)
+    mc = MonteCarlo(10000, map.diff_vectors, map.binary_array, map.map_width, map.map_height)
     mc.set_particles()
     mc.run_mcl()
 

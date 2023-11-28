@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+#Ashwin Subramanian, subraash@oregonstate.edu
+#Try and localize robot within known map, starting position not given
+
 import rosbag
 import numpy as np
 import rospy
@@ -32,12 +35,12 @@ class MapInterpolation():
         self.origin_y = -12.0
 
         #Trial Params
-        self.trials = 1
+        self.trials = 10000
         self.variations = 1
 
         ####Display Options 
         self.visualize = False        #output images
-        self.only_start_viz = False   #True = Only starting points, False = Full path
+        self.only_start_viz = False   #starting points vs. full paths
         self.genAlt = False           #compute alternative paths
         self.showOrgPath = False      #display original path
 
@@ -45,9 +48,9 @@ class MapInterpolation():
         self.path_coords = []
         self.map_data = []
         self.map_coords = []
+        self.mcl_coords = []
         self.diff_vectors = []
         self.precise_diff_vectors = []
-        self.mcl_vectors = []
 
         self.map_array = np.zeros((self.map_height, self.map_width), dtype=np.uint8)
         self.bag = rosbag.Bag(self.bag_name + '.bag')
@@ -57,7 +60,7 @@ class MapInterpolation():
         self.binary_array = np.where(self.map_data == 100, 1, 0)
 
         self.readBag()
-        self.generateVectors()
+        self.diff_vectors = self.generateVectors(self.path_coords)
         # self.generatePreciseVectors()
 
         if self.genAlt:
@@ -109,24 +112,30 @@ class MapInterpolation():
             x = pos.__getattribute__('x')
             y = pos.__getattribute__('y')
             self.path_coords.append((y, -x)) #for map
-            self.mcl_vectors.append((-x, y)) #for mcl
+            self.mcl_coords.append((-x, y)) #for mcl
 
-    def generateVectors(self):
+    def generateVectors(self, coordinates):
+
+        coords = coordinates
 
         #original points
-        for x, y in self.path_coords:
+        map_coords = []
+        for x, y in coords:
             map_x = int((x - self.origin_x) / self.resolution)  
             map_y = int((y - self.origin_y) / self.resolution)
-            self.map_coords.append((map_x, map_y))
+            map_coords.append((map_x, map_y))
 
-        self.map_coords = list(dict.fromkeys(self.map_coords))
+        self.map_coords = list(dict.fromkeys(map_coords))
 
         #vectors
+        diff_vectors = []
         for x in range(len(self.map_coords) - 1):
             vector = np.array([self.map_coords[x+1][0] - self.map_coords[x][0], self.map_coords[x+1][1] - self.map_coords[x][1]])
             mag = np.linalg.norm(vector)
             ang = np.arctan2(vector[1], vector[0])
-            self.diff_vectors.append((mag, ang))
+            diff_vectors.append((mag, ang))
+
+        return diff_vectors
         
     def generatePreciseVectors(self):
         adjusted_coords = []
@@ -184,7 +193,7 @@ class MapInterpolation():
     def generateVisuals(self):
 
         colors = {
-            0: (255, 255, 255),       # White
+            0: (255, 255, 255), # White
             1: (255, 0, 0),     # Red
             2: (0, 255, 0),     # Lime
             3: (0, 0, 255),     # Blue
@@ -220,14 +229,19 @@ class MapInterpolation():
 
 class MonteCarlo():
 
-    def __init__(self, num_particles, diff_vectors, obstacles, width, height):
+    def __init__(self, diff_vectors, obstacles, width, height):
         self.particles = []
-        self.num_particles = num_particles
         self.diff_vectors = diff_vectors
         self.obstacles = obstacles
         self.width = width
         self.height = height
 
+        #Params
+        self.num_particles = 1000
+
+        #Display Options
+        self.showSteps = True          #This will generate a new Image every iteration vs. at the end. Keep image 
+        self.start_point_viz = False    #Starting points only
 
     def set_particles(self):
         for _ in range(self.num_particles):
@@ -237,12 +251,15 @@ class MonteCarlo():
             weight = 1.0 / self.num_particles
             self.particles.append(Particle(x, y, theta, weight))
 
-
     def run_mcl(self):
         for mag, ang in self.diff_vectors:
             self.motion_update(mag, ang)
             self.collision_update()
-            self.print_map()
+
+            if not self.particles : return
+            if self.showSteps: self.print_map()
+
+        self.print_map()
             
     def motion_update(self, mag, ang):
         for i in range(len(self.particles)):
@@ -307,20 +324,21 @@ class MonteCarlo():
         for particle in self.particles:
             clr = colors[particle.color]
 
-            mix.putpixel((particle.x, particle.y), clr) #for starting points
+            if self.start_point_viz:    
+                mix.putpixel((particle.x, particle.y), clr) #for starting points
+            else:
+                for p in particle.path: #for path
+                    x = p[0]
+                    y = p[1]
 
-            # for p in particle.path: #for path
-            #     x = p[0]
-            #     y = p[1]
-
-            #     if 0 <= x < self.width and 0 <= y < self.height:
-            #         mix.putpixel((x, y), clr)
+                    if 0 <= x < self.width and 0 <= y < self.height:
+                        mix.putpixel((x, y), clr)
         
         mix.save('mcl.jpeg')
 
 if __name__ == '__main__':
     map = MapInterpolation()
-    mc = MonteCarlo(10000, map.diff_vectors, map.binary_array, map.map_width, map.map_height)
+    mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height)
     mc.set_particles()
     mc.run_mcl()
 

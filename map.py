@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+#Ashwin Subramanian, subraash@oregonstate.edu
+#Generate a CSV file representing the map / obstacles as 1s and empty space as 0s
+
 import rospy
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import MapMetaData
@@ -7,21 +10,31 @@ import csv
 import numpy as np
 import pandas as pd
 
-def map_callback(data):
-    # map_data = data.data
-    map_info = data.info
-    map_array = np.array(data.data, dtype=np.int8).reshape(480, 480)
-    df = pd.DataFrame(map_array)
-    df.to_csv('map_data.csv', index=False)
-    print("done")
+class Map():
 
+    def __init__(self):
+        self.width = 0
+        self.height = 0
 
-def map_mmd_callback(data):
-    print(data)
+    def map_callback(self, data):
+        # map_data = data.data
+        map_info = data.info
+        map_array = np.array(data.data, dtype=np.int8).reshape(self.width, self.height)
+
+        df = pd.DataFrame(map_array)
+        df.to_csv('map_data.csv', index=False)
+
+        print("done", self.width, self.height)
+
+    def map_mmd_callback(self, data):
+        self.width = int(data.__getattribute__('width'))
+        self.height = int(data.__getattribute__('height'))
+        print(data)
 
 if __name__ == '__main__':
     rospy.init_node('map_subscriber')
+    m = Map()
 
-    rospy.Subscriber('/map', OccupancyGrid, map_callback)
-    rospy.Subscriber('/map_metadata', MapMetaData, map_mmd_callback)
+    rospy.Subscriber('/map_metadata', MapMetaData, m.map_mmd_callback)
+    rospy.Subscriber('/map', OccupancyGrid, m.map_callback)
     rospy.spin()

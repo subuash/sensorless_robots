@@ -14,4 +14,7 @@ These scripts work with any ros simulation enviorment where the robot is publish
 
     Run "python3 map.py" while simulation is open. Map parameters and obstacle csv will be generated. Crtl + C after "done" output
 
-    Run "python3 overlay.py" for full paths and/or mcl visualization
+    Run "python3 overlay.py" for full paths and/or mcl visualization. Tweak parameters as neccesary.
+
+ - *If using a different map than the example, Don't forget to change the readbag() function to change the topic and/or the data structure to get the position.
+ - *Check "Display Options" and Params to configure trials as desired for either class.

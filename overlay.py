@@ -5,11 +5,12 @@
 
 import rosbag
 import numpy as np
-import rospy
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import MapMetaData
 from PIL import Image
 import pandas as pd
+import random
+import time
 
 class Particle():
     def __init__(self, x, y, theta, weight):
@@ -235,13 +236,16 @@ class MonteCarlo():
         self.obstacles = obstacles
         self.width = width
         self.height = height
+        self.gif = []
 
         #Params
-        self.num_particles = 1000
+        self.num_particles = 100000     #atleast 100000 to get a someonewhat accurate result given a large map
 
         #Display Options
         self.showSteps = True          #This will generate a new Image every iteration vs. at the end. Keep image 
         self.start_point_viz = False    #Starting points only
+        self.makeGif = True
+        self.savePhoto = False
 
     def set_particles(self):
         for _ in range(self.num_particles):
@@ -252,18 +256,52 @@ class MonteCarlo():
             self.particles.append(Particle(x, y, theta, weight))
 
     def run_mcl(self):
-        for mag, ang in self.diff_vectors:
-            self.motion_update(mag, ang)
-            self.collision_update()
+        prev_diff = []
+        self.gif = []
+        for i, (mag, ang) in enumerate(self.diff_vectors):
+            prev_diff.append((mag, ang))
+
+            self.particles = self.motion_update(mag, ang, self.particles)
+            self.particles = self.collision_update(self.particles)
+
+            self.resample(self.num_particles - len(self.particles), prev_diff)
 
             if not self.particles : return
             if self.showSteps: self.print_map()
+            print("Progress: " + str((i / len(self.diff_vectors)) * 100) + "%")
 
         self.print_map()
+        if self.makeGif: self.createGif(self.gif)
+
+    def resample(self, sampleSize, prev_diff):
+        
+        if sampleSize <= 0: return
+
+        ###Set Particle
+        particles = []
+        for _ in range(sampleSize):
+            point = random.choice(self.particles)
+
+            x = int(point.x + np.random.uniform(-0.5, 0.5))
+            y = int(point.y + np.random.uniform(-0.5, 0.5))
+            theta = point.theta + np.random.uniform(-np.radians(15), np.radians(15))
+            weight = 1.0 / self.num_particles
+
+            particles.append(Particle(x, y, theta, weight))
+        
+        for mag, ang in prev_diff:
+            particles = self.motion_update(mag, ang, particles)
+            particles = self.collision_update(particles)
+
+        for p in particles:
+            self.particles.append(p)
+
+        self.resample(sampleSize - len(particles), prev_diff)
             
-    def motion_update(self, mag, ang):
-        for i in range(len(self.particles)):
-            p = self.particles[i]
+    def motion_update(self, mag, ang, old_particles):
+        particles = old_particles
+        for i in range(len(particles)):
+            p = particles[i]
             x = p.path[-1][0]
             y = p.path[-1][1]
 
@@ -279,19 +317,21 @@ class MonteCarlo():
             x = x + int(adjusted_mag * np.cos(adjusted_ang))
             y = y + int(adjusted_mag * np.sin(adjusted_ang))
 
-            self.particles[i].path.append((x, y))
+            particles[i].path.append((x, y))
+
+        return particles
         
-    def collision_update(self):
+    def collision_update(self, particles):
         t_particles = []
-        for particle in self.particles:
+        for particle in particles:
             x,y = particle.path[-1]
 
             if 0 <= x < self.width and 0 <= y < self.height \
             and self.obstacles[y, x] == 0:
                 t_particles.append(particle)
 
-        self.particles = t_particles
-        self.num_particles = len(self.particles)
+        return t_particles
+        # self.num_particles = len(particles)
     
     def print_map(self):
         mix = Image.new('RGB', (self.width, self.height), color='white')
@@ -333,13 +373,22 @@ class MonteCarlo():
 
                     if 0 <= x < self.width and 0 <= y < self.height:
                         mix.putpixel((x, y), clr)
-        
-        mix.save('mcl.jpeg')
+
+        if self.makeGif: self.gif.append(mix)
+        if self.savePhoto: mix.save('mcl.jpeg')
+    
+    def createGif(self, frames):
+        frame_one = frames[0]
+        frame_one.save("mcl.gif", format="GIF", append_images=frames,
+               save_all=True, duration=100, loop=0)
+
 
 if __name__ == '__main__':
     map = MapInterpolation()
     mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height)
+    start_time = time.time()
     mc.set_particles()
     mc.run_mcl()
+    print("--- %s seconds ---" % (time.time() - start_time))
 
     

@@ -11,6 +11,7 @@ from PIL import Image
 import pandas as pd
 import random
 import time
+import os
 
 class Particle():
     def __init__(self, x, y, theta, weight):
@@ -26,7 +27,9 @@ class MapInterpolation():
     def __init__(self):
         
         #Bag Params
-        self.bag_name = 'maze'
+        self.dir = 'data/warehouse/'
+        self.data_path = self.dir + '2/'
+        self.bag_name = self.data_path + 'maze'
 
         #Map Params
         self.map_width = 480
@@ -188,7 +191,7 @@ class MapInterpolation():
         # rospy.Subscriber('/map', OccupancyGrid, self.readMapDataCallback)
         # rospy.spin()
         
-        self.map_data = pd.read_csv('map_data.csv').to_numpy()
+        self.map_data = pd.read_csv(self.dir + 'map_data.csv').to_numpy()
         self.map_data = self.map_data[:, ::-1]
     
     def generateVisuals(self):
@@ -230,16 +233,17 @@ class MapInterpolation():
 
 class MonteCarlo():
 
-    def __init__(self, diff_vectors, obstacles, width, height):
+    def __init__(self, diff_vectors, obstacles, width, height, data_path):
         self.particles = []
         self.diff_vectors = diff_vectors
         self.obstacles = obstacles
         self.width = width
         self.height = height
         self.gif = []
+        self.data_path = data_path
 
         #Params
-        self.num_particles = 100000     #atleast 100000 to get a someonewhat accurate result given a large map
+        self.num_particles = 1000    #atleast 100000 to get a somewhat accurate result given a large map
 
         #Display Options
         self.showSteps = True          #This will generate a new Image every iteration vs. at the end. Keep image 
@@ -375,20 +379,20 @@ class MonteCarlo():
                         mix.putpixel((x, y), clr)
 
         if self.makeGif: self.gif.append(mix)
-        if self.savePhoto: mix.save('mcl.jpeg')
+        if self.savePhoto: mix.save(self.data_path + 'mcl.jpeg')
     
     def createGif(self, frames):
         frame_one = frames[0]
-        frame_one.save("mcl.gif", format="GIF", append_images=frames,
+        frame_one.save(self.data_path + "mcl.gif", format="GIF", append_images=frames,
                save_all=True, duration=100, loop=0)
 
 
 if __name__ == '__main__':
     map = MapInterpolation()
-    mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height)
+    mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height, map.data_path)
     start_time = time.time()
     mc.set_particles()
     mc.run_mcl()
-    print("--- %s seconds ---" % (time.time() - start_time))
+    print("--- %s min ---" % ((time.time() - start_time) / 60))
 
     

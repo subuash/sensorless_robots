@@ -17,6 +17,9 @@ class Map():
         self.height = 0
 
     def map_callback(self, data):
+
+        data_path = 'data/warehouse/'
+
         # map_data = data.data
         map_info = data.info
         map_array = np.array(data.data, dtype=np.int8).reshape(self.width, self.height)

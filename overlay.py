@@ -28,8 +28,8 @@ class MapInterpolation():
         
         #Bag Params
         self.dir = 'data/warehouse/'
-        self.data_path = self.dir + '2/'
-        self.bag_name = self.data_path + 'maze'
+        self.data_path = self.dir + '1/'
+        self.bag_name = self.data_path + 'warehouse'
 
         #Map Params
         self.map_width = 480
@@ -248,8 +248,8 @@ class MonteCarlo():
         #Display Options
         self.showSteps = True          #This will generate a new Image every iteration vs. at the end. Keep image 
         self.start_point_viz = False    #Starting points only
-        self.makeGif = True
-        self.savePhoto = False
+        self.makeGif = False
+        self.savePhoto = True
 
     def set_particles(self):
         for _ in range(self.num_particles):
@@ -309,14 +309,14 @@ class MonteCarlo():
             x = p.path[-1][0]
             y = p.path[-1][1]
 
-            r_mag = np.random.uniform(0.5, 2)
+            r_mag = np.random.uniform(0.9, 1.1)
             r_ang = np.random.uniform(-np.radians(10), np.radians(10))
 
-            adjusted_mag = mag * r_mag
-            adjusted_ang = ang + r_ang + p.theta
+            # adjusted_mag = mag * r_mag
+            # adjusted_ang = ang + r_ang + p.theta
 
-            # adjusted_mag = mag
-            # adjusted_ang = ang 
+            adjusted_mag = mag
+            adjusted_ang = ang 
 
             x = x + int(adjusted_mag * np.cos(adjusted_ang))
             y = y + int(adjusted_mag * np.sin(adjusted_ang))

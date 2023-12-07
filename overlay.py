@@ -13,6 +13,16 @@ import random
 import time
 import os
 
+
+#s
+from skimage.morphology import skeletonize
+from skimage import data, color, io
+import matplotlib.pyplot as plt
+from skimage.util import invert
+
+#tensorflow
+import cv2
+
 class Particle():
     def __init__(self, x, y, theta, weight):
         self.x = x
@@ -39,7 +49,7 @@ class MapInterpolation():
         self.origin_y = -12.0
 
         #Trial Params
-        self.trials = 10000
+        self.trials = 1
         self.variations = 1
 
         ####Display Options 
@@ -243,13 +253,13 @@ class MonteCarlo():
         self.data_path = data_path
 
         #Params
-        self.num_particles = 1000    #atleast 100000 to get a somewhat accurate result given a large map
+        self.num_particles = 1000   #atleast 100000 to get a somewhat accurate result given a large map
 
         #Display Options
-        self.showSteps = True          #This will generate a new Image every iteration vs. at the end. Keep image 
+        self.showSteps = False          #This will generate a new Image every iteration vs. at the end. Keep image 
         self.start_point_viz = False    #Starting points only
         self.makeGif = False
-        self.savePhoto = True
+        self.savePhoto = False
 
     def set_particles(self):
         for _ in range(self.num_particles):
@@ -337,6 +347,30 @@ class MonteCarlo():
         return t_particles
         # self.num_particles = len(particles)
     
+    # def wall_distance(self, particles):
+    #     t_particles = []
+    #     for particle in particles:
+    #         x,y = particle.path[-1]
+
+
+    #     return t_particles
+
+    def skeletonize(self):
+
+        image = self.obstacles == 1
+        image = invert(image)
+
+
+        image = np.ascontiguousarray(image, dtype=np.uint8)
+
+        skeleton = skeletonize(image)
+  
+        im = Image.fromarray(skeleton)
+
+        im.save('skeleton.png')
+
+
+    
     def print_map(self):
         mix = Image.new('RGB', (self.width, self.height), color='white')
 
@@ -390,9 +424,10 @@ class MonteCarlo():
 if __name__ == '__main__':
     map = MapInterpolation()
     mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height, map.data_path)
-    start_time = time.time()
-    mc.set_particles()
-    mc.run_mcl()
-    print("--- %s min ---" % ((time.time() - start_time) / 60))
+    mc.skeletonize()
+    # start_time = time.time()
+    # mc.set_particles()
+    # mc.run_mcl()
+    # print("--- %s min ---" % ((time.time() - start_time) / 60))
 
     

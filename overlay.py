@@ -12,10 +12,13 @@ import pandas as pd
 import random
 import time
 import os
-
+from pathlib import Path
 
 #s
 from skimage.morphology import skeletonize
+from scipy.ndimage import distance_transform_bf, distance_transform_edt
+from skimage.morphology import medial_axis
+from scipy.ndimage import morphology
 from skimage import data, color, io
 import matplotlib.pyplot as plt
 from skimage.util import invert
@@ -38,8 +41,10 @@ class MapInterpolation():
         
         #Bag Params
         self.dir = 'data/warehouse/'
-        self.data_path = self.dir + '1/'
+        self.data_path = self.dir + '3/'
         self.bag_name = self.data_path + 'warehouse'
+        Path(self.dir).mkdir(parents=True, exist_ok=True)
+        Path(self.data_path).mkdir(parents=True, exist_ok=True)
 
         #Map Params
         self.map_width = 480
@@ -256,9 +261,9 @@ class MonteCarlo():
         self.num_particles = 1000   #atleast 100000 to get a somewhat accurate result given a large map
 
         #Display Options
-        self.showSteps = False          #This will generate a new Image every iteration vs. at the end. Keep image 
+        self.showSteps = True          #This will generate a new Image every iteration vs. at the end. Keep image 
         self.start_point_viz = False    #Starting points only
-        self.makeGif = False
+        self.makeGif = True
         self.savePhoto = False
 
     def set_particles(self):
@@ -266,7 +271,7 @@ class MonteCarlo():
             x = int(np.random.uniform(0, self.width))
             y = int(np.random.uniform(0, self.height))
             theta = np.random.uniform(0, 360)
-            weight = 1.0 / self.num_particles
+            weight = self.distance_transform[y, x]
             self.particles.append(Particle(x, y, theta, weight))
 
     def run_mcl(self):
@@ -293,13 +298,15 @@ class MonteCarlo():
 
         ###Set Particle
         particles = []
+        weighted_particles = [1/particle.weight for particle in self.particles]
         for _ in range(sampleSize):
-            point = random.choice(self.particles)
+            # point = random.choice(self.particles)
+            point = random.choices(self.particles, weights=weighted_particles, k=1)[0]
 
             x = int(point.x + np.random.uniform(-0.5, 0.5))
             y = int(point.y + np.random.uniform(-0.5, 0.5))
             theta = point.theta + np.random.uniform(-np.radians(15), np.radians(15))
-            weight = 1.0 / self.num_particles
+            weight = self.distance_transform[y, x]
 
             particles.append(Particle(x, y, theta, weight))
         
@@ -311,6 +318,7 @@ class MonteCarlo():
             self.particles.append(p)
 
         self.resample(sampleSize - len(particles), prev_diff)
+    
             
     def motion_update(self, mag, ang, old_particles):
         particles = old_particles
@@ -332,7 +340,7 @@ class MonteCarlo():
             y = y + int(adjusted_mag * np.sin(adjusted_ang))
 
             particles[i].path.append((x, y))
-
+            
         return particles
         
     def collision_update(self, particles):
@@ -342,6 +350,7 @@ class MonteCarlo():
 
             if 0 <= x < self.width and 0 <= y < self.height \
             and self.obstacles[y, x] == 0:
+                particle.weight += self.distance_transform[y, x]
                 t_particles.append(particle)
 
         return t_particles
@@ -355,22 +364,42 @@ class MonteCarlo():
 
     #     return t_particles
 
-    def skeletonize(self):
+    # def skeletonize(self):
 
-        image = self.obstacles == 1
-        image = invert(image)
+    #     image = self.obstacles == 1
+    #     image = invert(image)
 
 
-        image = np.ascontiguousarray(image, dtype=np.uint8)
+    #     image = np.ascontiguousarray(image, dtype=np.uint8)
 
-        skeleton = skeletonize(image)
+    #     skeleton = skeletonize(image)
   
-        im = Image.fromarray(skeleton)
+    #     im = Image.fromarray(skeleton)
 
-        im.save('skeleton.png')
+    #     im.save('skeleton.png')
 
+    def medial_axis_weight(self):
+        binary_dilation = morphology.binary_dilation(self.obstacles, structure=np.ones((20,20))).astype(np.int64)
 
+        bt = (binary_dilation * 255).astype(np.uint8)
     
+        skeleton = skeletonize(invert(bt))
+
+        # combined = np.logical_or(mc.obstacles, np.where(skeleton == 1, 2, skeleton))
+
+        # og = Image.fromarray(bt)
+        # og.show()
+        # im = Image.fromarray(skeleton)
+        # im.show()
+        # ca = Image.fromarray(combined)
+        # ca.show()
+
+        self.distance_transform = distance_transform_edt(1 - skeleton.astype(np.int64))
+        # for row in distance_transform:
+        #     print(row)
+        # c = Image.fromarray(distance_transform)
+        # c.show()
+
     def print_map(self):
         mix = Image.new('RGB', (self.width, self.height), color='white')
 
@@ -424,10 +453,13 @@ class MonteCarlo():
 if __name__ == '__main__':
     map = MapInterpolation()
     mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height, map.data_path)
-    mc.skeletonize()
-    # start_time = time.time()
-    # mc.set_particles()
-    # mc.run_mcl()
-    # print("--- %s min ---" % ((time.time() - start_time) / 60))
+    # mc.skeletonize()
+    start_time = time.time()
+    mc.medial_axis_weight()
+    mc.set_particles()
+    mc.run_mcl()
+    print("--- %s min ---" % ((time.time() - start_time) / 60))
+
+
 
     

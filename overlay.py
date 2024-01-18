@@ -76,7 +76,7 @@ class MapInterpolation():
         self.viable = set()
 
         self.readMapData()
-        self.binary_array = np.where(self.map_data == 100, 1, 0)
+        self.binary_array = np.where(self.map_data == 0, 0, 1)
 
         self.readBag()
         self.diff_vectors = self.generateVectors(self.path_coords)
@@ -258,7 +258,7 @@ class MonteCarlo():
         self.data_path = data_path
 
         #Params
-        self.num_particles = 3000   #atleast 100000 to get a somewhat accurate result given a large map
+        self.num_particles = 1000   #atleast 100000 to get a somewhat accurate result given a large map
 
         #Display Options
         self.showSteps = True          #This will generate a new Image every iteration vs. at the end. Keep image 
@@ -367,20 +367,26 @@ class MonteCarlo():
     #     return t_particles
 
     def medial_axis_weight(self):
-        binary_dilation = morphology.binary_dilation(self.obstacles, structure=np.ones((20,20))).astype(np.int64)
+        # binary_dilation = morphology.binary_dilation(self.obstacles, structure=np.ones((20,20))).astype(np.int64)
 
-        bt = (binary_dilation * 255).astype(np.uint8)
-    
-        skeleton = skeletonize(invert(bt))
+        # bt = (binary_dilation * 255).astype(np.uint8)
 
-        # combined = np.logical_or(mc.obstacles, np.where(skeleton == 1, 2, skeleton))
+        image = self.obstacles == 1
+        image = invert(image)
 
-        # og = Image.fromarray(bt)
-        # og.show()
-        # im = Image.fromarray(skeleton)
-        # im.show()
-        # ca = Image.fromarray(combined)
-        # ca.show()
+
+        image = np.ascontiguousarray(image, dtype=np.uint8)
+
+        skeleton = skeletonize(image)
+
+        combined = np.logical_or(mc.obstacles, np.where(skeleton == 1, 2, skeleton))
+
+        og = Image.fromarray((self.obstacles).astype(np.uint8))
+        og.show()
+        im = Image.fromarray(skeleton)
+        im.show()
+        ca = Image.fromarray(combined)
+        ca.show()
 
         self.distance_transform = distance_transform_edt(1 - skeleton.astype(np.int64))
         # for row in distance_transform:
@@ -443,8 +449,8 @@ if __name__ == '__main__':
     mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height, map.data_path)
     start_time = time.time()
     mc.medial_axis_weight()
-    mc.set_particles()
-    mc.run_mcl()
+    # mc.set_particles()
+    # mc.run_mcl()
     print("--- %s min ---" % ((time.time() - start_time) / 60))
 
 

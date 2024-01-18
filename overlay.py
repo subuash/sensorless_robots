@@ -5,26 +5,16 @@
 
 import rosbag
 import numpy as np
-from nav_msgs.msg import OccupancyGrid
-from nav_msgs.msg import MapMetaData
 from PIL import Image
 import pandas as pd
 import random
 import time
-import os
 from pathlib import Path
 
 #s
 from skimage.morphology import skeletonize
-from scipy.ndimage import distance_transform_bf, distance_transform_edt
-from skimage.morphology import medial_axis
-from scipy.ndimage import morphology
-from skimage import data, color, io
-import matplotlib.pyplot as plt
+from scipy.ndimage import distance_transform_edt
 from skimage.util import invert
-
-#tensorflow
-import cv2
 
 class Particle():
     def __init__(self, x, y, theta, weight):
@@ -299,7 +289,7 @@ class MonteCarlo():
 
         ###Set Particle
         particles = []
-        weighted_particles = [1/particle.weight for particle in self.particles]
+        weighted_particles = [1/particle.weight if particle.weight else 1 for particle in self.particles]
         for _ in range(sampleSize):
             # point = random.choice(self.particles)
             point = random.choices(self.particles, weights=weighted_particles, k=1)[0]

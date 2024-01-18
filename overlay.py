@@ -369,14 +369,14 @@ class MonteCarlo():
 
         skeleton = skeletonize(image)
 
-        combined = np.logical_or(mc.obstacles, np.where(skeleton == 1, 2, skeleton))
+        # combined = np.logical_or(mc.obstacles, np.where(skeleton == 1, 2, skeleton))
 
-        og = Image.fromarray((self.obstacles).astype(np.uint8))
-        og.show()
-        im = Image.fromarray(skeleton)
-        im.show()
-        ca = Image.fromarray(combined)
-        ca.show()
+        # og = Image.fromarray((self.obstacles).astype(np.uint8))
+        # og.show()
+        # im = Image.fromarray(skeleton)
+        # im.show()
+        # ca = Image.fromarray(combined)
+        # ca.show()
 
         self.distance_transform = distance_transform_edt(1 - skeleton.astype(np.int64))
         # for row in distance_transform:

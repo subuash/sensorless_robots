@@ -258,18 +258,19 @@ class MonteCarlo():
         self.data_path = data_path
 
         #Params
-        self.num_particles = 1000   #atleast 100000 to get a somewhat accurate result given a large map
+        self.num_particles = 3000   #atleast 100000 to get a somewhat accurate result given a large map
 
         #Display Options
         self.showSteps = True          #This will generate a new Image every iteration vs. at the end. Keep image 
         self.start_point_viz = False    #Starting points only
         self.makeGif = True
-        self.savePhoto = False
+        self.savePhoto = True
 
     def set_particles(self):
         for _ in range(self.num_particles):
             x = int(np.random.uniform(0, self.width))
             y = int(np.random.uniform(0, self.height))
+            # theta = np.random.uniform(-np.radians(2 * np.pi), np.radians(2 * np.pi))
             theta = np.random.uniform(0, 360)
             weight = self.distance_transform[y, x]
             self.particles.append(Particle(x, y, theta, weight))
@@ -305,7 +306,7 @@ class MonteCarlo():
 
             x = int(point.x + np.random.uniform(-0.5, 0.5))
             y = int(point.y + np.random.uniform(-0.5, 0.5))
-            theta = point.theta + np.random.uniform(-np.radians(15), np.radians(15))
+            theta = point.theta + np.random.uniform(-np.radians(2 * np.pi), np.radians(2 * np.pi))
             weight = self.distance_transform[y, x]
 
             particles.append(Particle(x, y, theta, weight))
@@ -328,16 +329,16 @@ class MonteCarlo():
             y = p.path[-1][1]
 
             r_mag = np.random.uniform(0.9, 1.1)
-            r_ang = np.random.uniform(-np.radians(10), np.radians(10))
+            r_ang = np.random.uniform(-np.radians(20), np.radians(20))
 
-            # adjusted_mag = mag * r_mag
-            # adjusted_ang = ang + r_ang + p.theta
+            adjusted_mag = mag * r_mag
+            adjusted_ang = ang + r_ang + p.theta
 
-            adjusted_mag = mag
-            adjusted_ang = ang 
+            # adjusted_mag = mag
+            # adjusted_ang = ang 
 
-            x = x + int(adjusted_mag * np.cos(adjusted_ang))
-            y = y + int(adjusted_mag * np.sin(adjusted_ang))
+            x = x + adjusted_mag * np.cos(adjusted_ang)
+            y = y + adjusted_mag * np.sin(adjusted_ang)
 
             particles[i].path.append((x, y))
             
@@ -346,7 +347,8 @@ class MonteCarlo():
     def collision_update(self, particles):
         t_particles = []
         for particle in particles:
-            x,y = particle.path[-1]
+            x = int(particle.path[-1][0])
+            y = int(particle.path[-1][1])
 
             if 0 <= x < self.width and 0 <= y < self.height \
             and self.obstacles[y, x] == 0:
@@ -363,20 +365,6 @@ class MonteCarlo():
 
 
     #     return t_particles
-
-    # def skeletonize(self):
-
-    #     image = self.obstacles == 1
-    #     image = invert(image)
-
-
-    #     image = np.ascontiguousarray(image, dtype=np.uint8)
-
-    #     skeleton = skeletonize(image)
-  
-    #     im = Image.fromarray(skeleton)
-
-    #     im.save('skeleton.png')
 
     def medial_axis_weight(self):
         binary_dilation = morphology.binary_dilation(self.obstacles, structure=np.ones((20,20))).astype(np.int64)
@@ -432,11 +420,11 @@ class MonteCarlo():
             clr = colors[particle.color]
 
             if self.start_point_viz:    
-                mix.putpixel((particle.x, particle.y), clr) #for starting points
+                mix.putpixel((int(particle.x), int(particle.y)), clr) #for starting points
             else:
                 for p in particle.path: #for path
-                    x = p[0]
-                    y = p[1]
+                    x = int(p[0])
+                    y = int(p[1])
 
                     if 0 <= x < self.width and 0 <= y < self.height:
                         mix.putpixel((x, y), clr)
@@ -453,7 +441,6 @@ class MonteCarlo():
 if __name__ == '__main__':
     map = MapInterpolation()
     mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height, map.data_path)
-    # mc.skeletonize()
     start_time = time.time()
     mc.medial_axis_weight()
     mc.set_particles()

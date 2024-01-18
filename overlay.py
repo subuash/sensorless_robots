@@ -10,6 +10,7 @@ import pandas as pd
 import random
 import time
 from pathlib import Path
+import csv
 
 #s
 from skimage.morphology import skeletonize
@@ -31,8 +32,8 @@ class MapInterpolation():
         
         #Bag Params
         self.dir = 'data/warehouse/'
-        self.data_path = self.dir + '3/'
-        self.bag_name = self.data_path + 'warehouse'
+        self.data_path = self.dir + '4/'
+        self.bag_name = self.dir + 'warehouse'
         Path(self.dir).mkdir(parents=True, exist_ok=True)
         Path(self.data_path).mkdir(parents=True, exist_ok=True)
 
@@ -48,10 +49,10 @@ class MapInterpolation():
         self.variations = 1
 
         ####Display Options 
-        self.visualize = False        #output images
-        self.only_start_viz = False   #starting points vs. full paths
-        self.genAlt = False           #compute alternative paths
-        self.showOrgPath = False      #display original path
+        self.visualize = False        #Output images
+        self.only_start_viz = False   #Starting points vs. full paths
+        self.genAlt = False           #Compute alternative paths
+        self.showOrgPath = False      #Display original path
 
         self.paths = []
         self.path_coords = []
@@ -122,6 +123,11 @@ class MapInterpolation():
             y = pos.__getattribute__('y')
             self.path_coords.append((y, -x)) #for map
             self.mcl_coords.append((-x, y)) #for mcl
+
+        # df = pd.DataFrame(self.path_coords)
+        # df.to_csv(self.dir+'path_coords.csv', index=False)
+        # df1 = pd.DataFrame(self.mcl_coords)
+        # df1.to_csv(self.dir+'mcl_coords.csv', index=False)
 
     def generateVectors(self, coordinates):
 
@@ -238,7 +244,7 @@ class MapInterpolation():
 
 class MonteCarlo():
 
-    def __init__(self, diff_vectors, obstacles, width, height, data_path):
+    def __init__(self, diff_vectors, obstacles, width, height, data_path, original_coods):
         self.particles = []
         self.diff_vectors = diff_vectors
         self.obstacles = obstacles
@@ -246,21 +252,23 @@ class MonteCarlo():
         self.height = height
         self.gif = []
         self.data_path = data_path
+        self.original_coords = original_coods
 
         #Params
-        self.num_particles = 1000   #atleast 100000 to get a somewhat accurate result given a large map
+        self.num_particles = 1000   #atleast 10000 to get a somewhat accurate result given a large map
 
         #Display Options
         self.showSteps = True          #This will generate a new Image every iteration vs. at the end. Keep image 
-        self.start_point_viz = False    #Starting points only
+        self.curr_point_viz = True    #Current points only
         self.makeGif = True
         self.savePhoto = True
+        self.original_path = True
 
     def set_particles(self):
         for _ in range(self.num_particles):
             x = int(np.random.uniform(0, self.width))
             y = int(np.random.uniform(0, self.height))
-            # theta = np.random.uniform(-np.radians(2 * np.pi), np.radians(2 * np.pi))
+
             theta = np.random.uniform(0, 360)
             weight = self.distance_transform[y, x]
             self.particles.append(Particle(x, y, theta, weight))
@@ -275,13 +283,25 @@ class MonteCarlo():
             self.particles = self.collision_update(self.particles)
 
             self.resample(self.num_particles - len(self.particles), prev_diff)
-
+            
             if not self.particles : return
             if self.showSteps: self.print_map()
-            print("Progress: " + str((i / len(self.diff_vectors)) * 100) + "%")
+            print("Progress: " + str((i / len(self.diff_vectors)) * 100) + "%, Accuracy: " + str((self.accuracy(i) / self.num_particles) * 100) + "%")
 
         self.print_map()
         if self.makeGif: self.createGif(self.gif)
+    
+    def accuracy(self, x):
+        accurate = 0
+        org_x, org_y = self.original_coords[x]
+        for i in range(len(self.particles)):
+            p = self.particles[i]
+            x = p.path[-1][0]
+            y = p.path[-1][1]
+            if org_x - 20 < x < org_x + 20 and org_y - 20 < y < org_y + 20:
+                accurate += 1
+        
+        return accurate
 
     def resample(self, sampleSize, prev_diff):
         
@@ -291,7 +311,6 @@ class MonteCarlo():
         particles = []
         weighted_particles = [1/particle.weight if particle.weight else 1 for particle in self.particles]
         for _ in range(sampleSize):
-            # point = random.choice(self.particles)
             point = random.choices(self.particles, weights=weighted_particles, k=1)[0]
 
             x = int(point.x + np.random.uniform(-0.5, 0.5))
@@ -319,13 +338,10 @@ class MonteCarlo():
             y = p.path[-1][1]
 
             r_mag = np.random.uniform(0.9, 1.1)
-            r_ang = np.random.uniform(-np.radians(20), np.radians(20))
+            r_ang = np.random.uniform(-np.radians(10), np.radians(10))
 
             adjusted_mag = mag * r_mag
             adjusted_ang = ang + r_ang + p.theta
-
-            # adjusted_mag = mag
-            # adjusted_ang = ang 
 
             x = x + adjusted_mag * np.cos(adjusted_ang)
             y = y + adjusted_mag * np.sin(adjusted_ang)
@@ -346,43 +362,17 @@ class MonteCarlo():
                 t_particles.append(particle)
 
         return t_particles
-        # self.num_particles = len(particles)
-    
-    # def wall_distance(self, particles):
-    #     t_particles = []
-    #     for particle in particles:
-    #         x,y = particle.path[-1]
-
-
-    #     return t_particles
 
     def medial_axis_weight(self):
-        # binary_dilation = morphology.binary_dilation(self.obstacles, structure=np.ones((20,20))).astype(np.int64)
-
-        # bt = (binary_dilation * 255).astype(np.uint8)
 
         image = self.obstacles == 1
         image = invert(image)
-
-
         image = np.ascontiguousarray(image, dtype=np.uint8)
 
         skeleton = skeletonize(image)
 
-        # combined = np.logical_or(mc.obstacles, np.where(skeleton == 1, 2, skeleton))
-
-        # og = Image.fromarray((self.obstacles).astype(np.uint8))
-        # og.show()
-        # im = Image.fromarray(skeleton)
-        # im.show()
-        # ca = Image.fromarray(combined)
-        # ca.show()
-
         self.distance_transform = distance_transform_edt(1 - skeleton.astype(np.int64))
-        # for row in distance_transform:
-        #     print(row)
-        # c = Image.fromarray(distance_transform)
-        # c.show()
+
 
     def print_map(self):
         mix = Image.new('RGB', (self.width, self.height), color='white')
@@ -415,8 +405,8 @@ class MonteCarlo():
         for particle in self.particles:
             clr = colors[particle.color]
 
-            if self.start_point_viz:    
-                mix.putpixel((int(particle.x), int(particle.y)), clr) #for starting points
+            if self.curr_point_viz:    
+                mix.putpixel((int(particle.path[-1][0]), int(particle.path[-1][1])), clr) #for curr points
             else:
                 for p in particle.path: #for path
                     x = int(p[0])
@@ -424,6 +414,20 @@ class MonteCarlo():
 
                     if 0 <= x < self.width and 0 <= y < self.height:
                         mix.putpixel((x, y), clr)
+        
+        #original path
+        if self.original_path:
+            for (x, y) in self.original_coords:
+                mix.putpixel((x, y), clr)
+            if self.curr_point_viz:
+                i = len(self.particles[0].path) - 1
+                x,y = self.original_coords[i]
+                for l in range(3):
+                    for n in range(3):
+                        mix.putpixel((x+l, y+n), clr)
+                        mix.putpixel((x-l, y-n), clr)
+                        mix.putpixel((x+l, y-n), clr)
+                        mix.putpixel((x-l, y+n), clr)
 
         if self.makeGif: self.gif.append(mix)
         if self.savePhoto: mix.save(self.data_path + 'mcl.jpeg')
@@ -436,11 +440,11 @@ class MonteCarlo():
 
 if __name__ == '__main__':
     map = MapInterpolation()
-    mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height, map.data_path)
+    mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height, map.data_path, map.map_coords)
     start_time = time.time()
     mc.medial_axis_weight()
-    # mc.set_particles()
-    # mc.run_mcl()
+    mc.set_particles()
+    mc.run_mcl()
     print("--- %s min ---" % ((time.time() - start_time) / 60))
 
 

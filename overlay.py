@@ -128,6 +128,15 @@ class MapInterpolation():
         # df.to_csv(self.dir+'path_coords.csv', index=False)
         # df1 = pd.DataFrame(self.mcl_coords)
         # df1.to_csv(self.dir+'mcl_coords.csv', index=False)
+            
+        # with open(self.dir + "path_coords.csv", 'r') as file:
+        #     csv_reader = csv.reader(file)
+        #     for x,y in csv_reader:
+        #         self.path_coords.append((float(x), float(y)))
+        # with open(self.dir + "mcl_coords.csv", 'r') as file:
+        #     csv_reader = csv.reader(file)
+        #     for x,y in csv_reader:
+        #         self.mcl_coords.append((float(x), float(y)))
 
     def generateVectors(self, coordinates):
 

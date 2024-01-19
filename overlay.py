@@ -31,18 +31,18 @@ class MapInterpolation():
     def __init__(self):
         
         #Bag Params
-        self.dir = 'data/warehouse/'
+        self.dir = 'data/corridor/'
         self.data_path = self.dir + '4/'
-        self.bag_name = self.dir + 'warehouse'
+        self.bag_name = self.dir + 'corridor'
         Path(self.dir).mkdir(parents=True, exist_ok=True)
         Path(self.data_path).mkdir(parents=True, exist_ok=True)
 
         #Map Params
-        self.map_width = 480
-        self.map_height = 480
+        self.map_width = 384
+        self.map_height = 384
         self.resolution = 0.05
-        self.origin_x = -12.0 
-        self.origin_y = -12.0
+        self.origin_x = -10.0 
+        self.origin_y = -10.0
 
         #Trial Params
         self.trials = 1
@@ -124,10 +124,10 @@ class MapInterpolation():
             self.path_coords.append((y, -x)) #for map
             self.mcl_coords.append((-x, y)) #for mcl
 
-        # df = pd.DataFrame(self.path_coords)
-        # df.to_csv(self.dir+'path_coords.csv', index=False)
-        # df1 = pd.DataFrame(self.mcl_coords)
-        # df1.to_csv(self.dir+'mcl_coords.csv', index=False)
+        df = pd.DataFrame(self.path_coords)
+        df.to_csv(self.dir+'path_coords.csv', index=False)
+        df1 = pd.DataFrame(self.mcl_coords)
+        df1.to_csv(self.dir+'mcl_coords.csv', index=False)
             
         # with open(self.dir + "path_coords.csv", 'r') as file:
         #     csv_reader = csv.reader(file)
@@ -264,7 +264,7 @@ class MonteCarlo():
         self.original_coords = original_coods
 
         #Params
-        self.num_particles = 1000   #atleast 10000 to get a somewhat accurate result given a large map
+        self.num_particles = 10000   #atleast 10000 to get a somewhat accurate result given a large map
 
         #Display Options
         self.showSteps = True          #This will generate a new Image every iteration vs. at the end. Keep image 
@@ -322,8 +322,8 @@ class MonteCarlo():
         for _ in range(sampleSize):
             point = random.choices(self.particles, weights=weighted_particles, k=1)[0]
 
-            x = int(point.x + np.random.uniform(-0.5, 0.5))
-            y = int(point.y + np.random.uniform(-0.5, 0.5))
+            x = int(point.x + np.random.uniform(-10, 10))
+            y = int(point.y + np.random.uniform(10, 10))
             theta = point.theta + np.random.uniform(-np.radians(2 * np.pi), np.radians(2 * np.pi))
             weight = self.distance_transform[y, x]
 

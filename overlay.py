@@ -28,22 +28,25 @@ class Particle():
 
 class MapInterpolation():
 
-    def __init__(self):
+    def __init__(self, course, number, width, height, org_x, org_y, res):
         
         #Bag Params
-        course = 'warehouse'
         self.dir = 'data/' + course + '/'
-        self.data_path = self.dir + '5/'
+        self.data_path = self.dir + str(number) + '/'
+        while Path(self.data_path).exists():
+            print("Path exists: new path: " + self.dir + str(number) + '/')
+            number += 1
+            self.data_path = self.dir + str(number) + '/'
         self.bag_name = self.dir + course
         Path(self.dir).mkdir(parents=True, exist_ok=True)
         Path(self.data_path).mkdir(parents=True, exist_ok=True)
 
         #Map Params
-        self.map_width = 480
-        self.map_height = 480
-        self.resolution = 0.05
-        self.origin_x = -12.0 
-        self.origin_y = -12.0
+        self.map_width = width
+        self.map_height = height
+        self.resolution = res
+        self.origin_x = org_x 
+        self.origin_y = org_y
 
         #Trial Params
         self.trials = 1
@@ -203,8 +206,8 @@ class MapInterpolation():
         # self.map_info = data.info
         self.map_data = np.array(data.data, dtype=np.int8).reshape(self.map_width, self.map_height)
         
-        # df = pd.DataFrame(self.map_data)
-        # df.to_csv('map_data.csv', index=False)
+        df = pd.DataFrame(self.map_data)
+        df.to_csv('map_data.csv', index=False)
 
     def readMapData(self):
         # rospy.init_node('map_subscriber')
@@ -254,7 +257,7 @@ class MapInterpolation():
 
 class MonteCarlo():
 
-    def __init__(self, diff_vectors, obstacles, width, height, data_path, original_coods):
+    def __init__(self, diff_vectors, obstacles, width, height, data_path, original_coods, var_random_angle, num_particles):
         self.particles = []
         self.diff_vectors = diff_vectors
         self.obstacles = obstacles
@@ -263,22 +266,29 @@ class MonteCarlo():
         self.gif = []
         self.data_path = data_path
         self.original_coords = original_coods
+        self.var_random_angle = var_random_angle
 
         #Params
-        self.num_particles = 1000   #atleast 10000 to get a somewhat accurate result given a large map
+        self.num_particles = num_particles   #atleast 10000 to get a somewhat accurate result given a large map
 
         #Display Options
         self.showSteps = True          #This will generate a new Image every iteration vs. at the end. Keep image 
-        self.curr_point_viz = False    #Current points only
+        self.curr_point_viz = True    #Current points only
         self.makeGif = True
         self.savePhoto = True
         self.original_path = True
+
+        #File name
+        self.file_name = str(self.num_particles) + "ps_" + str(var_random_angle) + "%var_mcl"
 
     def set_particles(self):
         for _ in range(self.num_particles):
             x = int(np.random.uniform(0, self.width))
             y = int(np.random.uniform(0, self.height))
-            theta = np.random.uniform(0, 360)
+            v = (self.var_random_angle * 0.01 * 180) 
+            theta = np.random.uniform(0 - v, v) #uniform true random
+            # theta = np.random.normal(0, v) #gaussian variance 
+
             weight = self.distance_transform[y, x]
             self.particles.append(Particle(x, y, theta, weight))
 
@@ -307,7 +317,7 @@ class MonteCarlo():
             p = self.particles[i]
             x = p.path[-1][0]
             y = p.path[-1][1]
-            if org_x - 20 < x < org_x + 20 and org_y - 20 < y < org_y + 20:
+            if org_x - 25 < x < org_x + 25 and org_y - 25 < y < org_y + 25:
                 accurate += 1
         
         return accurate
@@ -440,17 +450,17 @@ class MonteCarlo():
                         mix.putpixel((x-l, y+n), clr)
 
         if self.makeGif: self.gif.append(mix)
-        if self.savePhoto: mix.save(self.data_path + 'mcl.jpeg')
+        if self.savePhoto: mix.save(self.data_path + self.file_name + '.jpeg')
     
     def createGif(self, frames):
         frame_one = frames[0]
-        frame_one.save(self.data_path + "mcl.gif", format="GIF", append_images=frames,
+        frame_one.save(self.data_path + self.file_name + ".gif", format="GIF", append_images=frames,
                save_all=True, duration=100, loop=0)
 
 
 if __name__ == '__main__':
-    map = MapInterpolation()
-    mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height, map.data_path, map.map_coords)
+    map = MapInterpolation('simple_house_1', 1, 1344, 992, -20.55, -9.99, 0.03) #course, number, width, height, org_x, org_y, res
+    mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height, map.data_path, map.map_coords, 100, 1000)
     start_time = time.time()
     mc.medial_axis_weight()
     mc.set_particles()

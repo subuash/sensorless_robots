@@ -31,18 +31,19 @@ class MapInterpolation():
     def __init__(self):
         
         #Bag Params
-        self.dir = 'data/corridor/'
-        self.data_path = self.dir + '4/'
-        self.bag_name = self.dir + 'corridor'
+        course = 'warehouse'
+        self.dir = 'data/' + course + '/'
+        self.data_path = self.dir + '5/'
+        self.bag_name = self.dir + course
         Path(self.dir).mkdir(parents=True, exist_ok=True)
         Path(self.data_path).mkdir(parents=True, exist_ok=True)
 
         #Map Params
-        self.map_width = 384
-        self.map_height = 384
+        self.map_width = 480
+        self.map_height = 480
         self.resolution = 0.05
-        self.origin_x = -10.0 
-        self.origin_y = -10.0
+        self.origin_x = -12.0 
+        self.origin_y = -12.0
 
         #Trial Params
         self.trials = 1
@@ -264,11 +265,11 @@ class MonteCarlo():
         self.original_coords = original_coods
 
         #Params
-        self.num_particles = 10000   #atleast 10000 to get a somewhat accurate result given a large map
+        self.num_particles = 1000   #atleast 10000 to get a somewhat accurate result given a large map
 
         #Display Options
         self.showSteps = True          #This will generate a new Image every iteration vs. at the end. Keep image 
-        self.curr_point_viz = True    #Current points only
+        self.curr_point_viz = False    #Current points only
         self.makeGif = True
         self.savePhoto = True
         self.original_path = True
@@ -277,7 +278,6 @@ class MonteCarlo():
         for _ in range(self.num_particles):
             x = int(np.random.uniform(0, self.width))
             y = int(np.random.uniform(0, self.height))
-
             theta = np.random.uniform(0, 360)
             weight = self.distance_transform[y, x]
             self.particles.append(Particle(x, y, theta, weight))
@@ -318,10 +318,11 @@ class MonteCarlo():
 
         ###Set Particle
         particles = []
-        weighted_particles = [1/particle.weight if particle.weight else 1 for particle in self.particles]
+        # weighted_particles = [1/particle.weight if particle.weight else 1 for particle in self.particles]
         for _ in range(sampleSize):
-            point = random.choices(self.particles, weights=weighted_particles, k=1)[0]
-
+            # point = random.choices(self.particles, weights=weighted_particles, k=1)[0]
+            point = random.choice(self.particles)
+            
             x = int(point.x + np.random.uniform(-10, 10))
             y = int(point.y + np.random.uniform(10, 10))
             theta = point.theta + np.random.uniform(-np.radians(2 * np.pi), np.radians(2 * np.pi))

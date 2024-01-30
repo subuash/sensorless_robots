@@ -358,7 +358,10 @@ class MonteCarlo():
             
             x = int(point.x + np.random.uniform(-10, 10))
             y = int(point.y + np.random.uniform(10, 10))
-            theta = point.theta + np.random.uniform(-np.radians(2 * np.pi), np.radians(2 * np.pi)) #tp1
+            var = 0
+            if self.var_random_angle != 0:
+                var = self.trunc_normal_dist.rvs()
+            theta = point.theta + var
             weight = self.distance_transform[y, x]
 
             particles.append(Particle(x, y, theta, weight))

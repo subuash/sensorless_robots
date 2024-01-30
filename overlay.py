@@ -294,7 +294,7 @@ class MonteCarlo():
 
         
         #csv
-        self.f = open('data.csv', 'a+')
+        self.f = open('warehouse_data.csv', 'a+')
 
     def set_particles(self):
         for _ in range(self.num_particles):
@@ -319,12 +319,15 @@ class MonteCarlo():
             self.particles = self.motion_update(mag, ang, self.particles)
             self.particles = self.collision_update(self.particles)
 
-            self.resample(self.num_particles - len(self.particles), prev_diff)
-            
+            self.resample(self.num_particles - len(self.particles), prev_diff, 900)
+
+            self.f.write(str(self.num_particles) + ", " + str((self.accuracy(i) / self.num_particles) * 100) + '\n')
+
+            if len(self.particles) != self.num_particles: break
             if not self.particles : return
             if self.showSteps: self.print_map()
             # print("Progress: " + str((i / len(self.diff_vectors)) * 100) + "%, Accuracy: " + str((self.accuracy(i) / self.num_particles) * 100) + "%")
-            self.f.write(str(self.num_particles) + ", " + str((self.accuracy(i) / self.num_particles) * 100) + '\n')
+            
 
         self.print_map()
         if self.makeGif: self.createGif(self.gif)
@@ -345,9 +348,11 @@ class MonteCarlo():
         
         return accurate
 
-    def resample(self, sampleSize, prev_diff):
+    def resample(self, sampleSize, prev_diff, recursion_limit):
         
         if sampleSize <= 0: return
+
+        if recursion_limit == 0: return
 
         ###Set Particle
         particles = []
@@ -373,7 +378,7 @@ class MonteCarlo():
         for p in particles:
             self.particles.append(p)
 
-        self.resample(sampleSize - len(particles), prev_diff)
+        self.resample(sampleSize - len(particles), prev_diff, recursion_limit - 1)
     
             
     def motion_update(self, mag, ang, old_particles):
@@ -496,7 +501,7 @@ if __name__ == '__main__':
     'warehouse': {'course': 'warehouse', 'number': 1, 'width': 480, 'height': 480, 'org_x': -12.0, 'org_y': -12.0, 'res': 0.05}
     }
 
-    p = maps['corridor']
+    p = maps['warehouse']
     map = MapInterpolation(p['course'], p['number'], p['width'], p['height'], p['org_x'], p['org_y'], p['res'])
     mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height, map.data_path, map.map_coords, 0, int(sys.argv[1]), 0) # %random orientation, particles, %random path
 

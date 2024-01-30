@@ -18,14 +18,14 @@ class Map():
 
     def map_callback(self, data):
 
-        data_path = 'data/corridor/'
+        data_path = 'data/house_1/'
 
         # map_data = data.data
         map_info = data.info
         map_array = np.array(data.data, dtype=np.int8).reshape(self.width, self.height)
 
         df = pd.DataFrame(map_array)
-        df.to_csv(data_path + 'map_data.csv', index=False)
+        df.to_csv(data_path + 'u_map_data.csv', index=False)
 
         print("done", self.width, self.height)
 

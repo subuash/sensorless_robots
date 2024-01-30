@@ -5,17 +5,21 @@
 
 import rosbag
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import pandas as pd
 import random
 import time
 from pathlib import Path
 import csv
+import sys
+import matplotlib.pyplot as plt
+import math
 
 #s
 from skimage.morphology import skeletonize
 from scipy.ndimage import distance_transform_edt
 from skimage.util import invert
+from scipy.stats import truncnorm
 
 class Particle():
     def __init__(self, x, y, theta, weight):
@@ -257,7 +261,7 @@ class MapInterpolation():
 
 class MonteCarlo():
 
-    def __init__(self, diff_vectors, obstacles, width, height, data_path, original_coods, var_random_angle, num_particles):
+    def __init__(self, diff_vectors, obstacles, width, height, data_path, original_coods, var_random_angle, num_particles, var_random_path):
         self.particles = []
         self.diff_vectors = diff_vectors
         self.obstacles = obstacles
@@ -267,27 +271,41 @@ class MonteCarlo():
         self.data_path = data_path
         self.original_coords = original_coods
         self.var_random_angle = var_random_angle
+        self.var_random_path = var_random_path
 
         #Params
         self.num_particles = num_particles   #atleast 10000 to get a somewhat accurate result given a large map
 
         #Display Options
         self.showSteps = True          #This will generate a new Image every iteration vs. at the end. Keep image 
-        self.curr_point_viz = True    #Current points only
+        self.curr_point_viz = False    #Current points only
         self.makeGif = True
         self.savePhoto = True
         self.original_path = True
 
         #File name
-        self.file_name = str(self.num_particles) + "ps_" + str(var_random_angle) + "%var_mcl"
+        self.file_name = str(self.num_particles) + "ps_" + str(var_random_angle) + "%var_ang_" + str(var_random_path) + "%var_path"
+
+        #scipy
+        sd = (math.e ** (0.065 * self.var_random_angle))
+        v = (self.var_random_angle * 0.01 * 180) 
+        if self.var_random_angle != 0:
+            self.trunc_normal_dist = truncnorm((0 - v) / sd, (v) / sd, loc=0, scale=sd)
+
+        
+        #csv
+        self.f = open('data.csv', 'a+')
 
     def set_particles(self):
         for _ in range(self.num_particles):
             x = int(np.random.uniform(0, self.width))
             y = int(np.random.uniform(0, self.height))
-            v = (self.var_random_angle * 0.01 * 180) 
-            theta = np.random.uniform(0 - v, v) #uniform true random
-            # theta = np.random.normal(0, v) #gaussian variance 
+            # v = (self.var_random_angle * 0.01 * 180) 
+            # theta = np.random.uniform(0 - v, v) #uniform true random
+            # theta = np.random.normal(0, v) #gaussian variance
+            theta = 0
+            if self.var_random_angle != 0:
+                theta = self.trunc_normal_dist.rvs()
 
             weight = self.distance_transform[y, x]
             self.particles.append(Particle(x, y, theta, weight))
@@ -305,18 +323,23 @@ class MonteCarlo():
             
             if not self.particles : return
             if self.showSteps: self.print_map()
-            print("Progress: " + str((i / len(self.diff_vectors)) * 100) + "%, Accuracy: " + str((self.accuracy(i) / self.num_particles) * 100) + "%")
+            # print("Progress: " + str((i / len(self.diff_vectors)) * 100) + "%, Accuracy: " + str((self.accuracy(i) / self.num_particles) * 100) + "%")
+            self.f.write(str(self.num_particles) + ", " + str((self.accuracy(i) / self.num_particles) * 100) + '\n')
 
         self.print_map()
         if self.makeGif: self.createGif(self.gif)
+        print("Done")
     
-    def accuracy(self, x):
+    def accuracy(self, i):
         accurate = 0
-        org_x, org_y = self.original_coords[x]
-        for i in range(len(self.particles)):
-            p = self.particles[i]
+        # ang = self.diff_vectors[i]
+        org_x, org_y = self.original_coords[i]
+
+        for t in range(len(self.particles)):
+            p = self.particles[t]
             x = p.path[-1][0]
             y = p.path[-1][1]
+            theta = p.theta
             if org_x - 25 < x < org_x + 25 and org_y - 25 < y < org_y + 25:
                 accurate += 1
         
@@ -335,7 +358,7 @@ class MonteCarlo():
             
             x = int(point.x + np.random.uniform(-10, 10))
             y = int(point.y + np.random.uniform(10, 10))
-            theta = point.theta + np.random.uniform(-np.radians(2 * np.pi), np.radians(2 * np.pi))
+            theta = point.theta + np.random.uniform(-np.radians(2 * np.pi), np.radians(2 * np.pi)) #tp1
             weight = self.distance_transform[y, x]
 
             particles.append(Particle(x, y, theta, weight))
@@ -357,8 +380,8 @@ class MonteCarlo():
             x = p.path[-1][0]
             y = p.path[-1][1]
 
-            r_mag = np.random.uniform(0.9, 1.1)
-            r_ang = np.random.uniform(-np.radians(10), np.radians(10))
+            r_mag = np.random.uniform(1 - self.var_random_path * 0.01, 1 + self.var_random_path * 0.01)
+            r_ang = np.random.uniform(-np.radians(self.var_random_path * 0.01 * 180), np.radians(self.var_random_path) * 0.01 * 180)
 
             adjusted_mag = mag * r_mag
             adjusted_ang = ang + r_ang + p.theta
@@ -449,6 +472,10 @@ class MonteCarlo():
                         mix.putpixel((x+l, y-n), clr)
                         mix.putpixel((x-l, y+n), clr)
 
+        draw = ImageDraw.Draw(mix)
+        i = len(self.particles[0].path) - 1
+        draw.text((10, 10), ("Progress: " + str(int((i / len(self.diff_vectors)) * 100)) + "%, Accuracy: " + str(int((self.accuracy(i) / self.num_particles) * 100)) + "%"))
+
         if self.makeGif: self.gif.append(mix)
         if self.savePhoto: mix.save(self.data_path + self.file_name + '.jpeg')
     
@@ -459,8 +486,17 @@ class MonteCarlo():
 
 
 if __name__ == '__main__':
-    map = MapInterpolation('simple_house_1', 1, 1344, 992, -20.55, -9.99, 0.03) #course, number, width, height, org_x, org_y, res
-    mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height, map.data_path, map.map_coords, 100, 1000)
+    maps = {
+    'corridor': {'course': 'corridor', 'number': 1, 'width': 384, 'height': 384, 'org_x': -10.0, 'org_y': -10.0, 'res': 0.05},
+    'simple_house_1': {'course': 'simple_house_1', 'number': 1, 'width': 1344, 'height': 992, 'org_x': -20.55, 'org_y': -9.99, 'res': 0.03},
+    'house_1': {'course': 'house_1', 'number': 1, 'width': 1984, 'height': 1984, 'org_x': -10.0, 'org_y': -10.0, 'res': 0.01},
+    'warehouse': {'course': 'warehouse', 'number': 1, 'width': 480, 'height': 480, 'org_x': -12.0, 'org_y': -12.0, 'res': 0.05}
+    }
+
+    p = maps['corridor']
+    map = MapInterpolation(p['course'], p['number'], p['width'], p['height'], p['org_x'], p['org_y'], p['res'])
+    mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height, map.data_path, map.map_coords, 0, int(sys.argv[1]), 0) # %random orientation, particles, %random path
+
     start_time = time.time()
     mc.medial_axis_weight()
     mc.set_particles()

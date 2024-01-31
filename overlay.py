@@ -335,7 +335,7 @@ class MonteCarlo():
     
     def room_bounds(self, x, y):
         for room in self.rooms:
-            if room[0][0] < x < room[1][0] and room[0][1] < y < room[1][1]:
+            if room[0][0] <= x <= room[1][0] and room[0][1] <= y <= room[1][1]:
                 return(room)
 
         print("ERORR: POINT NOT IN ROOM")

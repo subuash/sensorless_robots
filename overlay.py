@@ -261,7 +261,7 @@ class MapInterpolation():
 
 class MonteCarlo():
 
-    def __init__(self, diff_vectors, obstacles, width, height, data_path, original_coods, var_random_angle, num_particles, var_random_path):
+    def __init__(self, diff_vectors, obstacles, width, height, data_path, original_coods, var_random_angle, num_particles, var_random_path, res, rooms):
         self.particles = []
         self.diff_vectors = diff_vectors
         self.obstacles = obstacles
@@ -272,13 +272,15 @@ class MonteCarlo():
         self.original_coords = original_coods
         self.var_random_angle = var_random_angle
         self.var_random_path = var_random_path
+        self.res = res
+        self.rooms = rooms
 
         #Params
         self.num_particles = num_particles   #atleast 10000 to get a somewhat accurate result given a large map
 
         #Display Options
         self.showSteps = True          #This will generate a new Image every iteration vs. at the end. Keep image 
-        self.curr_point_viz = False    #Current points only
+        self.curr_point_viz = True    #Current points only
         self.makeGif = True
         self.savePhoto = True
         self.original_path = True
@@ -292,17 +294,13 @@ class MonteCarlo():
         if self.var_random_angle != 0:
             self.trunc_normal_dist = truncnorm((0 - v) / sd, (v) / sd, loc=0, scale=sd)
 
-        
         #csv
-        self.f = open('warehouse_data.csv', 'a+')
+        self.f = open('corridor_data.csv', 'a+')
 
     def set_particles(self):
         for _ in range(self.num_particles):
             x = int(np.random.uniform(0, self.width))
             y = int(np.random.uniform(0, self.height))
-            # v = (self.var_random_angle * 0.01 * 180) 
-            # theta = np.random.uniform(0 - v, v) #uniform true random
-            # theta = np.random.normal(0, v) #gaussian variance
             theta = 0
             if self.var_random_angle != 0:
                 theta = self.trunc_normal_dist.rvs()
@@ -320,33 +318,49 @@ class MonteCarlo():
             self.particles = self.collision_update(self.particles)
 
             self.resample(self.num_particles - len(self.particles), prev_diff, 900)
-
-            self.f.write(str(self.num_particles) + ", " + str((self.accuracy(i) / self.num_particles) * 100) + '\n')
+            acc, same_room = self.accuracy(i)
+            self.f.write(str(self.num_particles) + ", " + str((acc / self.num_particles) * 100) + ', ' + str((same_room / self.num_particles) * 100) + '\n')
 
             if len(self.particles) != self.num_particles: break
             if not self.particles : return
             if self.showSteps: self.print_map()
-            # print("Progress: " + str((i / len(self.diff_vectors)) * 100) + "%, Accuracy: " + str((self.accuracy(i) / self.num_particles) * 100) + "%")
+            acc, same_room = self.accuracy(i)
+            print("Progress: " + str((i / len(self.diff_vectors)) * 100) + "%, Accuracy: " + str((acc / self.num_particles) * 100) + "%, Same Room: " \
+                  + str((same_room / self.num_particles) * 100) + "%")
             
 
         self.print_map()
         if self.makeGif: self.createGif(self.gif)
         print("Done")
     
+    def room_bounds(self, x, y):
+        for room in self.rooms:
+            if room[0][0] < x < room[1][0] and room[0][1] < y < room[1][1]:
+                return(room)
+
+        print("ERORR: POINT NOT IN ROOM")
+        return[(0,0), (0,0)]
+
     def accuracy(self, i):
         accurate = 0
+        same_room = 0
         # ang = self.diff_vectors[i]
         org_x, org_y = self.original_coords[i]
+        room = self.room_bounds(org_x, org_y)
 
         for t in range(len(self.particles)):
             p = self.particles[t]
             x = p.path[-1][0]
             y = p.path[-1][1]
             theta = p.theta
-            if org_x - 25 < x < org_x + 25 and org_y - 25 < y < org_y + 25:
+            bounds = 1 / self.res
+            if org_x - bounds < x < org_x + bounds and org_y - bounds < y < org_y + bounds:
                 accurate += 1
+
+            if room[0][0] < x < room[1][0] and room[0][1] < y < room[1][1]:
+                same_room +=1
         
-        return accurate
+        return accurate, same_room
 
     def resample(self, sampleSize, prev_diff, recursion_limit):
         
@@ -482,7 +496,9 @@ class MonteCarlo():
 
         draw = ImageDraw.Draw(mix)
         i = len(self.particles[0].path) - 1
-        draw.text((10, 10), ("Progress: " + str(int((i / len(self.diff_vectors)) * 100)) + "%, Accuracy: " + str(int((self.accuracy(i) / self.num_particles) * 100)) + "%"))
+        acc, same_room = self.accuracy(i)
+        draw.text((10, 10), ("Progress: " + str(int((i / len(self.diff_vectors)) * 100)) + "%, Accuracy: " + str(int((acc / self.num_particles) * 100)) + "%, Same Room: " \
+                  + str(int((same_room / self.num_particles) * 100)) + "%"))
 
         if self.makeGif: self.gif.append(mix)
         if self.savePhoto: mix.save(self.data_path + self.file_name + '.jpeg')
@@ -495,16 +511,16 @@ class MonteCarlo():
 
 if __name__ == '__main__':
     maps = {
-    'corridor': {'course': 'corridor', 'number': 1, 'width': 384, 'height': 384, 'org_x': -10.0, 'org_y': -10.0, 'res': 0.05},
+    'corridor': {'course': 'corridor', 'number': 1, 'width': 384, 'height': 384, 'org_x': -10.0, 'org_y': -10.0, 'res': 0.05, 
+                'rooms': [[(0, 140), (58, 216)], [(58, 181), (121, 216)], [(121, 181), (214, 216)], [(214, 181), (302, 216)], [(302, 181), (356, 268)]]},
     'simple_house_1': {'course': 'simple_house_1', 'number': 1, 'width': 1344, 'height': 992, 'org_x': -20.55, 'org_y': -9.99, 'res': 0.03},
     'house_1': {'course': 'house_1', 'number': 1, 'width': 1984, 'height': 1984, 'org_x': -10.0, 'org_y': -10.0, 'res': 0.01},
     'warehouse': {'course': 'warehouse', 'number': 1, 'width': 480, 'height': 480, 'org_x': -12.0, 'org_y': -12.0, 'res': 0.05}
     }
 
-    p = maps['warehouse']
+    p = maps['corridor']
     map = MapInterpolation(p['course'], p['number'], p['width'], p['height'], p['org_x'], p['org_y'], p['res'])
-    mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height, map.data_path, map.map_coords, 0, int(sys.argv[1]), 0) # %random orientation, particles, %random path
-
+    mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height, map.data_path, map.map_coords, 0, int(sys.argv[1]), 0, p['res'], p['rooms']) # %random orientation, particles, %random path. resolution
     start_time = time.time()
     mc.medial_axis_weight()
     mc.set_particles()

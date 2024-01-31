@@ -6,15 +6,14 @@ These scripts work with any ros simulation enviorment where the robot is publish
 
 
     Example:
-    Clone and follow instructions: https://github.com/ai-winter/ros_motion_planning
+    To generate map and path data:
+        To use this code you need an existing ROS world and map setup with the ROS navigation stack.
 
-    Disable pedestrians by setting pedestrians: "" in catkin_ws/src/ros_motion_planning/src/user_config/user_config.yaml
+        While recording a rosbag on /odom, /map, and /map_metadata, move your robot via a goal pose/poses. Name and save that bag in an appropriately named folder in /data.
 
-    Record a rosbag on /odom
+        Run "python3 map.py" while simulation is open. Map parameters and obstacle csv will be generated. Crtl + C after "done" output. Move outputs to previous folder in /data.
 
-    Run "python3 map.py" while simulation is open. Map parameters and obstacle csv will be generated. Crtl + C after "done" output
+    Run "python3 overlay.py" for full paths and/or mcl visualization. Tweak parameters as neccesary. 
 
-    Run "python3 overlay.py" for full paths and/or mcl visualization. Tweak parameters as neccesary.
 
- - *If using a different map than the example, Don't forget to change the readbag() function to change the topic and/or the data structure to get the position.
  - *Check "Display Options" and Params to configure trials as desired for either class.

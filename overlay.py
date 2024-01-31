@@ -374,9 +374,9 @@ class MonteCarlo():
         for _ in range(sampleSize):
             # point = random.choices(self.particles, weights=weighted_particles, k=1)[0]
             point = random.choice(self.particles)
-            
-            x = int(point.x + np.random.uniform(-10, 10))
-            y = int(point.y + np.random.uniform(10, 10))
+            spawn_bounds = 1 / self.res
+            x = int(point.x + np.random.uniform(-spawn_bounds, spawn_bounds))
+            y = int(point.y + np.random.uniform(-spawn_bounds, spawn_bounds))
             var = 0
             if self.var_random_angle != 0:
                 var = self.trunc_normal_dist.rvs()

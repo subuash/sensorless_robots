@@ -261,7 +261,7 @@ class MapInterpolation():
 
 class MonteCarlo():
 
-    def __init__(self, diff_vectors, obstacles, width, height, data_path, original_coods, var_random_angle, num_particles, var_random_path, res, rooms):
+    def __init__(self, diff_vectors, obstacles, width, height, data_path, original_coods, var_random_angle, num_particles, var_random_path, res, rooms, cviz):
         self.particles = []
         self.diff_vectors = diff_vectors
         self.obstacles = obstacles
@@ -280,7 +280,7 @@ class MonteCarlo():
 
         #Display Options
         self.showSteps = True          #This will generate a new Image every iteration vs. at the end. Keep image 
-        self.curr_point_viz = True    #Current points only
+        self.curr_point_viz = cviz    #Current points only
         self.makeGif = True
         self.savePhoto = True
         self.original_path = True
@@ -325,8 +325,8 @@ class MonteCarlo():
             if not self.particles : return
             if self.showSteps: self.print_map()
             acc, same_room = self.accuracy(i)
-            print("Progress: " + str((i / len(self.diff_vectors)) * 100) + "%, Accuracy: " + str((acc / self.num_particles) * 100) + "%, Same Room: " \
-                  + str((same_room / self.num_particles) * 100) + "%")
+            # print("Progress: " + str((i / len(self.diff_vectors)) * 100) + "%, Accuracy: " + str((acc / self.num_particles) * 100) + "%, Same Room: " \
+                #   + str((same_room / self.num_particles) * 100) + "%")
             
 
         self.print_map()
@@ -335,10 +335,10 @@ class MonteCarlo():
     
     def room_bounds(self, x, y):
         for room in self.rooms:
-            if room[0][0] < x < room[1][0] and room[0][1] < y < room[1][1]:
+            if room[0][0] <= x <= room[1][0] and room[0][1] <= y <= room[1][1]:
                 return(room)
 
-        print("ERORR: POINT NOT IN ROOM")
+        # print("ERORR: POINT NOT IN ROOM")
         return[(0,0), (0,0)]
 
     def accuracy(self, i):
@@ -520,7 +520,7 @@ if __name__ == '__main__':
 
     p = maps['corridor']
     map = MapInterpolation(p['course'], p['number'], p['width'], p['height'], p['org_x'], p['org_y'], p['res'])
-    mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height, map.data_path, map.map_coords, 0, int(sys.argv[1]), 0, p['res'], p['rooms']) # %random orientation, particles, %random path. resolution
+    mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height, map.data_path, map.map_coords, 0, int(sys.argv[1]), 0, p['res'], p['rooms'], int(sys.argv[2]) == 1) # %random orientation, particles, %random path. resolution, current point vis
     start_time = time.time()
     mc.medial_axis_weight()
     mc.set_particles()

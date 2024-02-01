@@ -295,7 +295,7 @@ class MonteCarlo():
             self.trunc_normal_dist = truncnorm((0 - v) / sd, (v) / sd, loc=0, scale=sd)
 
         #csv
-        self.f = open('corridor_data.csv', 'a+')
+        self.f = open('warehouse_data.csv', 'a+')
 
     def set_particles(self):
         for _ in range(self.num_particles):
@@ -515,10 +515,12 @@ if __name__ == '__main__':
                 'rooms': [[(0, 140), (58, 216)], [(58, 181), (121, 216)], [(121, 181), (214, 216)], [(214, 181), (302, 216)], [(302, 181), (356, 268)]]},
     'simple_house_1': {'course': 'simple_house_1', 'number': 1, 'width': 1344, 'height': 992, 'org_x': -20.55, 'org_y': -9.99, 'res': 0.03},
     'house_1': {'course': 'house_1', 'number': 1, 'width': 1984, 'height': 1984, 'org_x': -10.0, 'org_y': -10.0, 'res': 0.01},
-    'warehouse': {'course': 'warehouse', 'number': 1, 'width': 480, 'height': 480, 'org_x': -12.0, 'org_y': -12.0, 'res': 0.05}
+    'warehouse': {'course': 'warehouse', 'number': 1, 'width': 480, 'height': 480, 'org_x': -12.0, 'org_y': -12.0, 'res': 0.05,
+                'rooms': [[(43, 205), (94, 442)], [(94, 205), (228, 442)], [(228, 379), (444, 448)], [(228, 318), (444, 363)],
+                          [(228, 46), (448, 301)], [(101, 42), (228, 205)], [(47, 40), (101, 201)]] } #rooms are top left, bottom right
     }
 
-    p = maps['corridor']
+    p = maps['warehouse']
     map = MapInterpolation(p['course'], p['number'], p['width'], p['height'], p['org_x'], p['org_y'], p['res'])
     mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height, map.data_path, map.map_coords, 0, int(sys.argv[1]), 0, p['res'], p['rooms'], int(sys.argv[2]) == 1) # %random orientation, particles, %random path. resolution, current point vis
     start_time = time.time()

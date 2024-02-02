@@ -261,7 +261,7 @@ class MapInterpolation():
 
 class MonteCarlo():
 
-    def __init__(self, diff_vectors, obstacles, width, height, data_path, original_coods, var_random_angle, num_particles, var_random_path, res, rooms, cviz):
+    def __init__(self, diff_vectors, obstacles, width, height, data_path, original_coods, var_random_angle, num_particles, var_random_path, res, rooms, cviz, data_file):
         self.particles = []
         self.diff_vectors = diff_vectors
         self.obstacles = obstacles
@@ -295,7 +295,7 @@ class MonteCarlo():
             self.trunc_normal_dist = truncnorm((0 - v) / sd, (v) / sd, loc=0, scale=sd)
 
         #csv
-        self.f = open('warehouse_data.csv', 'a+')
+        self.f = open(str(data_file) + '.csv', 'a+')
 
     def set_particles(self):
         for _ in range(self.num_particles):
@@ -522,7 +522,7 @@ if __name__ == '__main__':
 
     p = maps['warehouse']
     map = MapInterpolation(p['course'], p['number'], p['width'], p['height'], p['org_x'], p['org_y'], p['res'])
-    mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height, map.data_path, map.map_coords, 0, int(sys.argv[1]), 0, p['res'], p['rooms'], int(sys.argv[2]) == 1) # %random orientation, particles, %random path. resolution, current point vis
+    mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height, map.data_path, map.map_coords, 0, int(sys.argv[1]), 0, p['res'], p['rooms'], int(sys.argv[2]) == 1, sys.argv[3]) # %random orientation, particles, %random path. resolution, current point vis
     start_time = time.time()
     mc.medial_axis_weight()
     mc.set_particles()

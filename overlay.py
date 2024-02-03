@@ -394,7 +394,7 @@ class MonteCarlo():
             r_ang = np.random.uniform(-np.radians(self.var_random_path * 0.01 * 180), np.radians(self.var_random_path) * 0.01 * 180)
 
             adjusted_mag = mag * r_mag
-            adjusted_ang = ang + r_ang + p.theta
+            adjusted_ang = ang + r_ang + (p.theta / 180)
 
             x = x + adjusted_mag * np.cos(adjusted_ang)
             y = y + adjusted_mag * np.sin(adjusted_ang)

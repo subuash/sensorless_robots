@@ -270,8 +270,8 @@ class MonteCarlo():
         self.gif = []
         self.data_path = data_path
         self.original_coords = original_coods
-        self.var_random_angle = var_random_angle
-        self.var_random_path = var_random_path
+        self.var_random_angle = int(var_random_angle)
+        self.var_random_path = int(var_random_path)
         self.res = res
         self.rooms = rooms
 
@@ -295,7 +295,7 @@ class MonteCarlo():
             self.trunc_normal_dist = truncnorm((0 - v) / sd, (v) / sd, loc=0, scale=sd)
 
         #csv
-        self.f = open(str(data_file) + '.csv', 'a+')
+        self.f = open('csv/`' + str(data_file) + '.csv', 'a+')
 
     def set_particles(self):
         for _ in range(self.num_particles):
@@ -319,7 +319,7 @@ class MonteCarlo():
 
             self.resample(self.num_particles - len(self.particles), prev_diff, 900)
             acc, same_room = self.accuracy(i)
-            self.f.write(str(self.num_particles) + ", " + str((acc / self.num_particles) * 100) + ', ' + str((same_room / self.num_particles) * 100) + '\n')
+            self.f.write(str(i) + ", " + str(self.num_particles) + ", " + str(self.var_random_angle) + ", " + str(self.var_random_path) + ", " + str((acc / self.num_particles) * 100) + ', ' + str((same_room / self.num_particles) * 100) + '\n')
 
             if len(self.particles) != self.num_particles: break
             if not self.particles : return
@@ -522,7 +522,7 @@ if __name__ == '__main__':
 
     p = maps['warehouse']
     map = MapInterpolation(p['course'], p['number'], p['width'], p['height'], p['org_x'], p['org_y'], p['res'])
-    mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height, map.data_path, map.map_coords, 0, int(sys.argv[1]), 0, p['res'], p['rooms'], int(sys.argv[2]) == 1, sys.argv[3]) # %random orientation, particles, %random path. resolution, current point vis
+    mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height, map.data_path, map.map_coords, sys.argv[4], int(sys.argv[1]), sys.argv[5], p['res'], p['rooms'], int(sys.argv[2]) == 1, sys.argv[3]) # %random orientation, particles, %random path. resolution, current point vis
     start_time = time.time()
     mc.medial_axis_weight()
     mc.set_particles()

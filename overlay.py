@@ -295,7 +295,7 @@ class MonteCarlo():
             self.trunc_normal_dist = truncnorm((0 - v) / sd, (v) / sd, loc=0, scale=sd)
 
         #csv
-        self.f = open('csv/`' + str(data_file) + '.csv', 'a+')
+        self.f = open('csv/' + str(data_file) + '.csv', 'a+')
 
     def set_particles(self):
         for _ in range(self.num_particles):

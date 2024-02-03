@@ -125,17 +125,6 @@ class MapInterpolation():
         return False
 
     def readBag(self):
-        # for topic, msg, t in self.bag.read_messages(topics='/odom'):
-        #     pos = msg.__getattribute__('pose').__getattribute__('pose').__getattribute__('position')
-        #     x = pos.__getattribute__('x')
-        #     y = pos.__getattribute__('y')
-        #     self.path_coords.append((y, -x)) #for map
-        #     self.mcl_coords.append((-x, y)) #for mcl
-
-        # df = pd.DataFrame(self.path_coords)
-        # df.to_csv(self.dir+'path_coords.csv', index=False)
-        # df1 = pd.DataFrame(self.mcl_coords)
-        # df1.to_csv(self.dir+'mcl_coords.csv', index=False)
         
         path = pd.read_csv(self.dir + "path_coords.csv")
         for x, y in zip(path['0'], path['1']):
@@ -144,16 +133,6 @@ class MapInterpolation():
         mcl = pd.read_csv(self.dir + "mcl_coords.csv")
         for x, y in zip(mcl['0'], mcl['1']):
             self.mcl_coords.append((x, y))
-
-        # with open(self.dir + "path_coords.csv", 'r') as file:
-            
-        #     csv_reader = csv.reader(file)
-        #     for (x,y) in csv_reader:
-        #         self.path_coords.append((float(x), float(y)))
-        # with open(self.dir + "mcl_coords.csv", 'r') as file:
-        #     csv_reader = csv.reader(file)
-        #     for (x,y)in csv_reader:
-        #         self.mcl_coords.append((float(x), float(y)))
 
     def generateVectors(self, coordinates):
 

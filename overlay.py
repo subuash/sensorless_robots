@@ -280,7 +280,7 @@ class MonteCarlo():
 
         #Display Options
         self.showSteps = True          #This will generate a new Image every iteration vs. at the end. Keep image 
-        self.curr_point_viz = cviz    #Current points only
+        self.curr_point_viz = cviz     #Current points only
         self.makeGif = True
         self.savePhoto = True
         self.original_path = True
@@ -311,12 +311,17 @@ class MonteCarlo():
     def run_mcl(self):
         prev_diff = []
         self.gif = []
+        last = 0
         for i, (mag, ang) in enumerate(self.diff_vectors):
             prev_diff.append((mag, ang))
 
             self.particles = self.motion_update(mag, ang, self.particles)
             self.particles = self.collision_update(self.particles)
 
+            if not self.particles: 
+                self.write_remainder(i, len(self.diff_vectors))
+                return
+            
             self.resample(self.num_particles - len(self.particles), prev_diff, 900)
             acc, same_room = self.accuracy(i)
             self.f.write(str(i) + ", " + str(self.num_particles) + ", " + str(self.var_random_angle) + ", " + str(self.var_random_path) + ", " + str((acc / self.num_particles) * 100) + ', ' + str((same_room / self.num_particles) * 100) + '\n')
@@ -327,12 +332,18 @@ class MonteCarlo():
             acc, same_room = self.accuracy(i)
             # print("Progress: " + str((i / len(self.diff_vectors)) * 100) + "%, Accuracy: " + str((acc / self.num_particles) * 100) + "%, Same Room: " \
                 #   + str((same_room / self.num_particles) * 100) + "%")
+            last = i
             
-
         self.print_map()
+        self.write_remainder(last, len(self.diff_vectors))
         if self.makeGif: self.createGif(self.gif)
         print("Done")
     
+    def write_remainder(self, step, remainder):
+        for x in range(step, remainder):
+            self.f.write(str(x) + ", " + str(self.num_particles) + ", " + str(self.var_random_angle) + ", " + str(self.var_random_path) + ", " + str(0) + ', ' + str(0) + '\n')
+
+
     def room_bounds(self, x, y):
         for room in self.rooms:
             if room[0][0] <= x <= room[1][0] and room[0][1] <= y <= room[1][1]:
@@ -510,6 +521,7 @@ class MonteCarlo():
 
 
 if __name__ == '__main__':
+    # sys.setrecursionlimit(5000)
     maps = {
     'corridor': {'course': 'corridor', 'number': 1, 'width': 384, 'height': 384, 'org_x': -10.0, 'org_y': -10.0, 'res': 0.05, 
                 'rooms': [[(0, 140), (58, 216)], [(58, 181), (121, 216)], [(121, 181), (214, 216)], [(214, 181), (302, 216)], [(302, 181), (356, 268)]]},
@@ -520,7 +532,7 @@ if __name__ == '__main__':
                           [(228, 46), (448, 301)], [(101, 42), (228, 205)], [(47, 40), (101, 201)]] } #rooms are top left, bottom right
     }
 
-    p = maps['warehouse']
+    p = maps['corridor']
     map = MapInterpolation(p['course'], p['number'], p['width'], p['height'], p['org_x'], p['org_y'], p['res'])
     mc = MonteCarlo(map.generateVectors(map.mcl_coords), map.binary_array, map.map_width, map.map_height, map.data_path, map.map_coords, sys.argv[4], int(sys.argv[1]), sys.argv[5], p['res'], p['rooms'], int(sys.argv[2]) == 1, sys.argv[3]) # %random orientation, particles, %random path. resolution, current point vis
     start_time = time.time()

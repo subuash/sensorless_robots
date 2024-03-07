@@ -283,7 +283,7 @@ class MonteCarlo():
             self.trunc_normal_dist = truncnorm((0 - v) / sd, (v) / sd, loc=0, scale=sd)
 
         #csv
-        self.f = open('csv/`' + str(data_file) + '.csv', 'a+')
+        self.f = open('csv/' + str(data_file) + '.csv', 'a+')
 
     def set_particles(self):
         for _ in range(self.num_particles):
@@ -299,12 +299,17 @@ class MonteCarlo():
     def run_mcl(self):
         prev_diff = []
         self.gif = []
+        last = 0
         for i, (mag, ang) in enumerate(self.diff_vectors):
             prev_diff.append((mag, ang))
 
             self.particles = self.motion_update(mag, ang, self.particles)
             self.particles = self.collision_update(self.particles)
 
+            if not self.particles: 
+                self.write_remainder(i, len(self.diff_vectors))
+                return
+            
             self.resample(self.num_particles - len(self.particles), prev_diff, 900)
             acc, same_room = self.accuracy(i)
             self.f.write(str(i) + ", " + str(self.num_particles) + ", " + str(self.var_random_angle) + ", " + str(self.var_random_path) + ", " + str((acc / self.num_particles) * 100) + ', ' + str((same_room / self.num_particles) * 100) + '\n')
@@ -315,12 +320,17 @@ class MonteCarlo():
             acc, same_room = self.accuracy(i)
             # print("Progress: " + str((i / len(self.diff_vectors)) * 100) + "%, Accuracy: " + str((acc / self.num_particles) * 100) + "%, Same Room: " \
                 #   + str((same_room / self.num_particles) * 100) + "%")
+            last = i
             
-
         self.print_map()
+        self.write_remainder(last, len(self.diff_vectors))
         if self.makeGif: self.createGif(self.gif)
         print("Done")
     
+    def write_remainder(self, step, remainder):
+        for x in range(step, remainder):
+            self.f.write(str(x) + ", " + str(self.num_particles) + ", " + str(self.var_random_angle) + ", " + str(self.var_random_path) + ", " + str(0) + ', ' + str(0) + '\n')
+
     def room_bounds(self, x, y):
         for room in self.rooms:
             if room[0][0] <= x <= room[1][0] and room[0][1] <= y <= room[1][1]:
@@ -351,36 +361,34 @@ class MonteCarlo():
         return accurate, same_room
 
     def resample(self, sampleSize, prev_diff, recursion_limit):
-        
-        if sampleSize <= 0: return
 
-        if recursion_limit == 0: return
+        if sampleSize <= 0: return #Total particle amount met
 
-        ###Set Particle
+        spawn_bounds = 1 / self.res #1m spawn radius
+
         particles = []
-        # weighted_particles = [1/particle.weight if particle.weight else 1 for particle in self.particles]
         for _ in range(sampleSize):
-            # point = random.choices(self.particles, weights=weighted_particles, k=1)[0]
-            point = random.choice(self.particles)
-            spawn_bounds = 1 / self.res
-            x = int(point.x + np.random.uniform(-spawn_bounds, spawn_bounds))
-            y = int(point.y + np.random.uniform(-spawn_bounds, spawn_bounds))
+            
+            particle = random.choice(self.particles)
+            x = int(particle.x + np.random.uniform(-spawn_bounds, spawn_bounds)) #Up to 1m of noise added to start
+            y = int(particle.y + np.random.uniform(-spawn_bounds, spawn_bounds))
+
             var = 0
             if self.var_random_angle != 0:
                 var = self.trunc_normal_dist.rvs()
-            theta = point.theta + var
+            theta = particle.theta + var
             weight = self.distance_transform[y, x]
 
-            particles.append(Particle(x, y, theta, weight))
+            particles.append(Particle(x, y, theta, weight)) #Potentially viable particles
         
-        for mag, ang in prev_diff:
+        for mag, ang in prev_diff:  #Ensure starting points are valid
             particles = self.motion_update(mag, ang, particles)
             particles = self.collision_update(particles)
 
-        for p in particles:
+        for p in particles: #Current particle state updated
             self.particles.append(p)
 
-        self.resample(sampleSize - len(particles), prev_diff, recursion_limit - 1)
+        self.resample(sampleSize - len(particles), prev_diff, recursion_limit - 1) #Recursively calling till all particles are valid
     
             
     def motion_update(self, mag, ang, old_particles):
@@ -481,7 +489,7 @@ class MonteCarlo():
                         mix.putpixel((x-l, y-n), clr)
                         mix.putpixel((x+l, y-n), clr)
                         mix.putpixel((x-l, y+n), clr)
-
+    
         draw = ImageDraw.Draw(mix)
         i = len(self.particles[0].path) - 1
         acc, same_room = self.accuracy(i)
